@@ -1,7 +1,7 @@
 /**
  * Recruitment against the seeded database: the public form's defences, the
  * pipeline rules, hidden scorecards, offers and hire → employee.
- * Needs `npm run db` + `npm run seed`. Changes data: run `npm run seed` afterwards.
+ * Needs `npm run db` + `npm run seed:test` (pins the demo to the week of 4 Nov 2026). Changes data: run `npm run seed` afterwards.
  */
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -17,6 +17,7 @@ import {
 import { AppError, ForbiddenError } from "@/server/errors";
 import { demoCvPdf } from "../scripts/demoPdf";
 
+const NOW = new Date("2026-11-04T09:00:00+03:00");
 const as = async (first: string): Promise<Ctx> => {
   const e = await Employee.findOne({ firstName: first }).lean();
   return ctxForUser((await User.findOne({ employeeId: e!._id }).lean())!, "test");
@@ -38,15 +39,15 @@ after(() => mongoose.disconnect());
 
 test("public form: PDF only, one application per email, honeypot, consent", async () => {
   const notPdf = { bytes: new TextEncoder().encode("MZ fake.exe"), name: "cv.pdf" };
-  await assert.rejects(submitApplication(slug, applicant(), notPdf, "t1"), /must be a PDF/, "checked by content, not file name");
-  await assert.rejects(submitApplication(slug, applicant({ website: "http://spam" }), pdf, "t1"), AppError, "honeypot");
-  await assert.rejects(submitApplication(slug, applicant({ consent: "" }), pdf, "t1"), "consent required");
+  await assert.rejects(submitApplication(slug, applicant(), notPdf, "t1", NOW), /must be a PDF/, "checked by content, not file name");
+  await assert.rejects(submitApplication(slug, applicant({ website: "http://spam" }), pdf, "t1", NOW), AppError, "honeypot");
+  await assert.rejects(submitApplication(slug, applicant({ consent: "" }), pdf, "t1", NOW), "consent required");
   const dup = applicant({ email: "achieng.odhiambo@example.com" });
-  await assert.rejects(submitApplication(slug, dup, pdf, "t1"), /already applied/);
+  await assert.rejects(submitApplication(slug, dup, pdf, "t1", NOW), /already applied/);
 });
 
 test("the candidate's status page shows no scores, notes or interviewers", async () => {
-  const { token } = await submitApplication(slug, applicant(), pdf, "t2");
+  const { token } = await submitApplication(slug, applicant(), pdf, "t2", NOW);
   const s = await candidateStatus(token);
   const json = JSON.stringify(s);
   for (const leak of ["score", "knockout", "scorecard", "panel", "statusTokenHash"]) assert.ok(!json.includes(leak), `no ${leak}`);

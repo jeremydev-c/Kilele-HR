@@ -151,11 +151,65 @@ Before you start: `npm run seed`, then open `.demo-links.txt` (each candidate's 
 
 ---
 
-## Demo day (early December): outline, about 10 minutes
+## Check-in 5 (Fri 4 Dec): Promotions, exits and the dashboard, about 10 minutes
 
-To be filled in as the modules land. Planned story: "a year in the life of Kilele Group".
-1. **Hire:** a requisition is approved → job advert on the public careers page → apply → shortlist → interview scorecards → offer → hire, which turns the applicant into an employee with no retyping.
-2. **Work:** new hire applies for leave → the line manager approves from *My Approvals* → HR approves → balance updates.
-3. **Grow:** a manager proposes a promotion → approved → it appears on the career timeline.
-4. **Leave the company:** resignation → clearance checklist across departments → exit interview → login disabled automatically.
-5. **Trust:** the audit trail shows every step, plus PII reveals with reasons. Verify the chain live.
+**1. Promotion (3 min).** As **David** → *Approvals*: one inbox holding a promotion *and* a leave request. Open **Mercy's promotion**, proposed by Collins. "It skipped Collins, who proposed it, and came to me, his manager." David sees no salaries: "line managers can't see pay, so they can't set it. Pay moves into the new band automatically." Approve. As **Grace**: she sees KES 145,000 → 170,000 (the G5 minimum). Approve → *Applied*. Open Mercy's profile: G5, Senior Software Engineer, new line in her career history. Also show **Victor** in *Promotions*: approved but *Scheduled* for a date next month. "The scheduled job applies it on the day."
+
+**2. Exit (4 min).** As **Brian** → *Exits*: "Clearance for your department to sign" and *Retiring in the next 12 months* (John Maina, with *Start retirement*). Open **Patrick**: approved resignation, 6/7 cleared, "27 annual leave days unused: to be paid in the final dues". Point out that each department signs only its own items (Joseph can't sign IT's). Sign *Email and system access switched off* → "record closed, login disabled". Then sign in as `patrick.mwenda@kilele.co.ke` → "This account has been disabled."
+
+**3. Exit interview privacy (1 min).** Grace sees Patrick's exit interview answers ("pay for logistics officers is behind the market"). Joseph, his manager, sees only that it was submitted. "If the manager could read it, nobody would be honest about the manager."
+
+**4. Dashboard (1 min).** As Grace: headcount by department, joiners, leavers, open vacancies, exits in progress, who's away today.
+
+---
+
+## Demo day (early December): the full story, about 12 minutes
+
+**The story:** a year in the life of Kilele Group: *hire → work → grow → leave*, with **trust** underneath all of it.
+
+### Before you go on (the morning of)
+- [ ] `npm run db`, `npm run seed` (shifts every demo date to *this* week), `npm run dev`. It all runs offline, so the venue Wi-Fi doesn't matter.
+- [ ] Two browser windows side by side: **A** (normal) for staff, **B** (private/incognito) for the candidate and a second staff login. No signing in and out in front of the panel.
+- [ ] Open `.demo-links.txt` (Achieng's status link) and a test PDF CV in a folder ready to attach.
+- [ ] Browser zoom at 125%, notifications off, laptop on charge.
+- [ ] Backup: screenshots of each step in a folder, in case the projector or laptop misbehaves.
+
+### 0. Open (45 s)
+"HR systems hold the most sensitive data in a company, and every action needs the right person's approval. I built Kilele HR around three ideas: **access by scope** (*what* you can do *and to whom*), **one approval engine** for leave, hiring, promotions and exits, and **everything audited**, in a log you can prove nobody has edited."
+
+### 1. Trust first: same record, different eyes (2 min)
+- **A, as Grace (HR Manager)** → Mercy's profile: everything, but ID and KRA PIN are masked. *Reveal* → asks why → type "Checking KRA PIN for PAYE" → values show for 60 s.
+- **B, as David (Line Manager)** → same profile: padlocks on PII and pay. "Not hidden by CSS: the server never sent it."
+
+### 2. Hire (3 min)
+- **B** → http://localhost:3000/careers → *Sales Executive* → apply with the PDF → the private status page. "A long random link is the candidate's key; we store only its hash."
+- **A, Grace** → *Recruitment* → *Senior Frontend Engineer*: candidates sorted by score, knock-outs flagged ⚠ "but a human decides". Open Achieng: two interviewers' scorecards, averages. "Interviewers can't see each other's scores until they've scored, so the boss's opinion can't anchor everyone."
+- Achieng has accepted (show her status link in **B**). **A** → *Hire*: only first-day details (ID, KRA PIN, date of birth) → lands on her **employee profile**: G4, KES 165,000 from the offer, reports to David, history says "hired through APP-…". "Nobody retyped anything."
+
+### 3. Work: leave (1.5 min)
+- **B, as Mercy** → *My leave*: pick Christmas week → "4 working days · Christmas Day not counted". "Kenyan holidays, Easter and the Sunday-to-Monday rule are calculated; Eid is added by HR." Send.
+- **A, as David** → *Approvals*: Mercy's leave sits next to her promotion. "One inbox for every kind of request."
+
+### 4. Grow: promotion (1.5 min)
+- **A, David** → Mercy's promotion (proposed by Collins, so it skipped Collins) → Approve. **B, Grace** → Approve → *Applied* → Mercy's profile shows G5 and the new history line. "Two different people must approve a career move, and the proposer never sees or sets the pay."
+
+### 5. Leave the company (1.5 min)
+- **A, as Brian (IT)** → *Exits* → Patrick → 6/7 cleared → sign "Email and system access switched off" → **record closed, login disabled**.
+- **B** → sign in as Patrick → "This account has been disabled." "On the last day, offboarding happens by itself once every department has cleared."
+
+### 6. Prove it (1 min)
+- **A** → *Audit trail* → filter *Employees*: Grace's reveal *with her reason*, the hire, the promotion, the exit. **Verify chain** → green.
+- *(If time allows: change one entry in `mongosh`, verify again → red, pointing at the exact entry.)*
+
+### 7. Close (30 s)
+"Six modules, one approval engine, field-level privacy, a tamper-evident audit log, and 44 automated tests. What I'd build next: payroll on top of this pay data, SMS notifications through Africa's Talking, and two-factor login for HR."
+
+### Questions to expect
+| Question | Short answer |
+|---|---|
+| Why build your own auth and not use a service? | To control and explain every part: scrypt hashes, short signed sessions, permissions reloaded on each request so revoking access is instant. In production I'd add 2FA and might use a provider for SSO. |
+| How does it scale? | Every list query is filtered by scope *inside MongoDB* using indexes (e.g. `managerPath` for "my team"). Nothing loads everyone and then filters. |
+| What if two people approve at once? | The save only succeeds if the step hasn't changed (`workflow.current` in the filter). The second click gets "someone else just decided". Tested. |
+| What if the server is down on a promotion's effective date? | The job is idempotent and catches up on its next run. Each change is claimed once with a conditional update. |
+| Is the PII really safe? | Encrypted at rest (AES-256-GCM) with keys outside the database, masked by default, revealed only with a logged reason, never sent to people without access, and every view audited. |
+| How do you know it works? | 17 unit tests and 27 database tests: permissions, holidays, screening scores, approval rules, concurrency, hiring, promotions and exits. `npm test` and `npm run test:db`. |

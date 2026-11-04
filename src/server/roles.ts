@@ -40,12 +40,13 @@ export const SYSTEM_ROLES = [
   },
   {
     name: "Line Manager",
-    description: "Sees and acts on their own team only: leave approval, hiring requests, promotions, exits.",
+    description: "Sees and acts on their own team only: leave approval, hiring requests, promotions, exits; signs off their department's exit clearance.",
     grants: [
       "employee:read@team", "employee.contact:read@team",
       "leave:read@team", "leave:approve@team",
       "requisition:create", "interview:score",
       "promotion:initiate@team", "separation:initiate@team",
+      "clearance:signoff",
     ],
   },
   {

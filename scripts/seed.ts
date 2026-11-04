@@ -29,6 +29,10 @@ import {
   candidateRespond, createRequisition, createVacancy, makeOffer, moveStage, scheduleInterview, submitApplication, submitScorecard,
 } from "@/server/services/recruitment";
 import { writeFileSync } from "node:fs";
+import { Movement } from "@/server/models/Movement";
+import { Separation } from "@/server/models/Separation";
+import { proposeMovement } from "@/server/services/movements";
+import { signClearance, startSeparation, submitExitInterview } from "@/server/services/separations";
 import { demoCvPdf } from "./demoPdf";
 
 /** Kenyan defaults (Employment Act 2007). HR can change them in Leave settings. */
@@ -196,15 +200,30 @@ function assertSafeTarget() {
   }
 }
 
+/**
+ * Demo dates are written for the week of Monday 2 Nov 2026 and shifted by
+ * whole weeks to the week you seed in, so "away today", interviews, offers
+ * and exits stay current on demo day. Whole weeks, so weekdays don't change.
+ * Tests pin the original week:  npm run seed -- --today=2026-11-04
+ */
+const DAY = 86_400_000;
+const ANCHOR_MONDAY = Date.UTC(2026, 10, 2);
+const mondayOf = (t: number) => t - ((new Date(t).getUTCDay() + 6) % 7) * DAY;
+const todayArg = process.argv.find((a) => a.startsWith("--today="))?.slice("--today=".length);
+const seedToday = Date.parse(`${todayArg ?? new Date(Date.now() + 3 * 3_600_000).toISOString().slice(0, 10)}T00:00:00Z`);
+const SHIFT_DAYS = Math.round((mondayOf(seedToday) - ANCHOR_MONDAY) / DAY);
+const d = (iso: string) => new Date(Date.parse(`${iso}T00:00:00Z`) + SHIFT_DAYS * DAY).toISOString().slice(0, 10);
+
 async function main() {
   assertSafeTarget();
+  if (SHIFT_DAYS) console.log(`Shifting demo dates by ${SHIFT_DAYS / 7} week(s) to the current week.`);
   const password = process.env.DEMO_PASSWORD;
   if (!password) throw new Error("Set DEMO_PASSWORD in .env.local first.");
 
   await connectDB();
   console.log("Wiping database…");
   await mongoose.connection.dropDatabase();
-  await Promise.all([User, Role, Department, Employee, AuditLog, EmploymentEvent, LeaveType, LeaveRequest, LeaveAdjustment, PublicHoliday, Requisition, Vacancy, Application].map((m) => m.syncIndexes()));
+  await Promise.all([User, Role, Department, Employee, AuditLog, EmploymentEvent, LeaveType, LeaveRequest, LeaveAdjustment, PublicHoliday, Requisition, Vacancy, Application, Movement, Separation].map((m) => m.syncIndexes()));
 
   // Roles
   const roles = await Role.insertMany([
@@ -346,10 +365,10 @@ async function main() {
   await PublicHoliday.insertMany(EXTRA_HOLIDAYS);
 
   const ctxOf = async (key: string) => ctxForUser((await User.findOne({ employeeId: ids.get(key) }).lean())!, "seed");
-  const on = (iso: string) => new Date(`${iso}T09:00:00+03:00`);
+  const on = (iso: string) => new Date(`${d(iso)}T09:00:00+03:00`);
   type Decision = [approver: string, decision: "approve" | "reject", decidedOn: string, comment?: string];
   const leave = async (who: string, typeCode: string, start: string, end: string, appliedOn: string, decisions: Decision[] = [], extra: { reason?: string; handoverTo?: string } = {}) => {
-    const id = await applyLeave(await ctxOf(who), { typeCode, start, end, ...extra }, on(appliedOn));
+    const id = await applyLeave(await ctxOf(who), { typeCode, start: d(start), end: d(end), ...extra }, on(appliedOn));
     for (const [approver, decision, decidedOn, comment] of decisions) {
       await decide(await ctxOf(approver), "leave", id, { decision, comment: comment ?? "" }, on(decidedOn));
     }
@@ -392,7 +411,7 @@ async function main() {
     responsibilities: "- Build fast, accessible interfaces in React and Next.js\n- Turn designs into polished, tested features\n- Review code and mentor a junior engineer\n- Work with backend engineers on clean APIs",
     requirements: "- 3+ years building production web apps with React\n- Strong TypeScript and CSS\n- You care about accessibility and performance\n- Bonus: M-Pesa or payments experience",
     location: "Nairobi (hybrid, 3 days in office)",
-    closesOn: "2026-11-30",
+    closesOn: d("2026-11-30"),
     showSalary: "on",
     publish: "on",
     criteria: "Technical skills\nProblem solving\nCommunication\nTeam fit",
@@ -402,7 +421,7 @@ async function main() {
       { text: "Have you shipped a production app used by real customers?", kind: "yesno", weight: 2, knockout: false, target: null, knockoutBelow: null },
       { text: "Expected monthly salary (KES)", kind: "number", weight: 0, knockout: false, target: null, knockoutBelow: null },
     ]),
-  });
+  }, on("2026-10-02"));
   const feSlug = (await Vacancy.findById(feVac).lean())!.slug;
 
   type Candidate = { name: string; email: string; phone: string; location: string; answers: string[]; cover: string; cv: string[]; day: string };
@@ -439,17 +458,17 @@ async function main() {
 
   // Achieng: interviewed, both panellists scored, offered, accepted → ready for HR to hire (the live demo)
   const panel = [String(ids.get("david")), String(ids.get("collins"))];
-  await scheduleInterview(faith, achieng.id, { at: "2026-10-22T10:00", durationMins: 60, mode: "in_person", where: "Boardroom, 4th floor", panelIds: panel }, on("2026-10-15"));
+  await scheduleInterview(faith, achieng.id, { at: `${d("2026-10-22")}T10:00`, durationMins: 60, mode: "in_person", where: "Boardroom, 4th floor", panelIds: panel }, on("2026-10-15"));
   const ivA = String((await Application.findById(achieng.id).lean())!.interviews[0]._id);
   const score = async (who: string, appId: string, interviewId: string, s: number[], recommendation: string, notes: string) =>
     submitScorecard(await ctxOf(who), appId, { interviewId, recommendation, notes, ...Object.fromEntries(s.map((x, i) => [`score_${i}`, String(x)])) }, on("2026-10-22"));
   await score("david", achieng.id, ivA, [5, 4, 5, 4], "strong_yes", "Clear thinker. Walked us through an accessibility fix she shipped, with numbers. Would raise the bar.");
   await score("collins", achieng.id, ivA, [4, 5, 4, 5], "yes", "Great pairing exercise; asked good questions about our API. Slightly light on testing.");
-  await makeOffer(faith, achieng.id, { basicSalary: "165000", expiresOn: "2026-11-09", startDate: "2026-12-01" }, on("2026-11-02"));
+  await makeOffer(faith, achieng.id, { basicSalary: "165000", expiresOn: d("2026-11-09"), startDate: d("2026-12-01") }, on("2026-11-02"));
   await candidateRespond(achieng.token, "accept", "seed", on("2026-11-03"));
 
   // Kip: interview next week; Collins has scored, David hasn't (demo: hidden scorecards)
-  await scheduleInterview(faith, kip.id, { at: "2026-11-12T14:00", durationMins: 45, mode: "video", where: "Google Meet link sent by email", panelIds: panel }, on("2026-10-20"));
+  await scheduleInterview(faith, kip.id, { at: `${d("2026-11-12")}T14:00`, durationMins: 45, mode: "video", where: "Google Meet link sent by email", panelIds: panel }, on("2026-10-20"));
   const ivK = String((await Application.findById(kip.id).lean())!.interviews[0]._id);
   await score("collins", kip.id, ivK, [4, 3, 4, 4], "yes", "Solid React fundamentals. Needs to grow in system design, but coachable.");
 
@@ -469,12 +488,12 @@ async function main() {
     summary: "Own our relationships with logistics companies in a new region, from first meeting to signed contract.",
     responsibilities: "- Find and win new business customers\n- Run product demos with our solutions team\n- Keep the CRM honest",
     requirements: "- 2+ years in B2B sales\n- Comfortable presenting to company owners\n- Valid driving licence",
-    location: "Mombasa or Kisumu", closesOn: "2026-12-15", showSalary: "on", publish: "on", criteria: "Sales skill\nCommunication\nDrive",
+    location: "Mombasa or Kisumu", closesOn: d("2026-12-15"), showSalary: "on", publish: "on", criteria: "Sales skill\nCommunication\nDrive",
     questions: JSON.stringify([
       { text: "Do you hold a valid Kenyan driving licence?", kind: "yesno", weight: 1, knockout: true, target: null, knockoutBelow: null },
       { text: "Years of B2B sales experience", kind: "number", weight: 2, knockout: false, target: 4, knockoutBelow: 1 },
     ]),
-  });
+  }, on("2026-10-21"));
   const salesSlug = (await Vacancy.findById(salesVac).lean())!.slug;
   const sales = [
     await apply(salesSlug, { name: "Halima Abdi", email: "halima.abdi@example.com", phone: "0722 900 431", location: "Mombasa", answers: ["yes", "5"], cover: "Five years selling freight services at the port.", cv: ["Key Account Manager, a freight forwarder (2021 - now)", "BCom Marketing, Technical University of Mombasa"], day: "2026-10-28" }, 10),
@@ -484,6 +503,54 @@ async function main() {
   // Candidates' private status links, for demoing the candidate's side
   const links = [...apps, ...sales].map((a) => `${a.name.padEnd(20)} http://localhost:3000/careers/status/${a.token}`).join("\n");
   writeFileSync(".demo-links.txt", `Candidate status pages (demo data; regenerated by npm run seed)\n\n${links}\n`);
+
+  // ---- Promotions --------------------------------------------------------------
+  const decideAs = async (type: string, who: string, id: string, day: string, comment = "") =>
+    decide(await ctxOf(who), type, id, { decision: "approve", comment }, on(day));
+
+  // Mercy: proposed by her team lead Collins, now waiting for David (the demo)
+  await proposeMovement(await ctxOf("collins"), {
+    employeeId: String(ids.get("mercy")), jobTitle: "Senior Software Engineer", grade: "G5", effectiveDate: d("2026-11-02"),
+    justification: "Led the payments-module rewrite that cut checkout errors by 40%, mentors Ian, and already covers on-call for the team.",
+  }, on("2026-11-02"));
+  // Victor: approved by the CEO and HR, takes effect next month (shows as Scheduled)
+  const victor = await proposeMovement(await ctxOf("lucy"), {
+    employeeId: String(ids.get("victor")), jobTitle: "Senior Sales Executive", grade: "G4", effectiveDate: d("2026-12-01"),
+    justification: "Top performer two quarters running: closed the two largest logistics accounts of the year and will lead the new Mombasa territory.",
+  }, on("2026-10-26"));
+  await decideAs("promotion", "ceo", victor, "2026-10-27", "Well deserved.");
+  await decideAs("promotion", "grace", victor, "2026-10-28");
+
+  // ---- Exits ---------------------------------------------------------------------
+  // Patrick resigned. Approved, nearly cleared: only IT's "switch off access" is left.
+  // When Brian signs it in the demo, the record closes and Patrick's login stops working.
+  const patrick = await startSeparation(await ctxOf("patrick"), {
+    employeeId: String(ids.get("patrick")), kind: "resignation", lastDay: d("2026-11-02"),
+    reason: "I've accepted a logistics manager role in Mombasa, closer to my family. Thank you for six great years.",
+  }, on("2026-10-05"));
+  await decideAs("separation", "joseph", patrick, "2026-10-06", "Sad to see you go. Handover plan agreed.");
+  await decideAs("separation", "grace", patrick, "2026-10-07");
+  const sep = (await Separation.findById(patrick).lean())!;
+  const signer: Record<string, string> = { "Engineering": "david", "Finance": "esther", "Human Resources": "kevin", "Operations": "joseph" };
+  for (const c of sep.clearance) {
+    if (c.item === "Email and system access switched off") continue; // left for Brian, live
+    await signClearance(await ctxOf(signer[c.departmentName]), patrick, String(c._id), "", on("2026-10-30"));
+  }
+  await submitExitInterview(await ctxOf("patrick"), patrick, {
+    reason: "Relocation", wouldRecommend: "yes", rating_0: "5", rating_1: "4", rating_2: "3", rating_3: "4", rating_4: "5",
+    comments: "Great team and a fair manager. Pay for logistics officers is behind the market; that came up a lot in my job search.",
+  }, on("2026-10-29"));
+
+  // Winnie resigned; waiting for her manager Lucy
+  await startSeparation(await ctxOf("winnie"), {
+    employeeId: String(ids.get("winnie")), kind: "resignation", lastDay: d("2026-11-30"),
+    reason: "I'm going back to university full time in January.",
+  }, on("2026-11-02"));
+  // Francis turns 60 in February: HR has started his retirement; waiting for Esther
+  await startSeparation(await ctxOf("grace"), {
+    employeeId: String(ids.get("francis")), kind: "retirement", lastDay: "2027-02-10",
+    reason: "Mandatory retirement at 60. Francis has asked to help train his replacement in January.",
+  }, on("2026-11-03"));
 
   const leaveCount = await LeaveRequest.countDocuments();
   const accounts = await User.countDocuments();

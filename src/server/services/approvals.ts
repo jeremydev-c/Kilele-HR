@@ -3,6 +3,10 @@ import { z } from "zod";
 import { connectDB } from "@/lib/db";
 import { LeaveRequest } from "../models/Leave";
 import { Requisition } from "../models/Recruitment";
+import { Movement } from "../models/Movement";
+import { Separation } from "../models/Separation";
+import { applyMovementIfDue } from "./movements";
+import { startClearance } from "./separations";
 import { record } from "../audit";
 import { AppError, NotFoundError } from "../errors";
 import { applyDecision, decisionRight, waitingForFilter, type WorkflowState } from "../workflow";
@@ -27,6 +31,12 @@ type Source = {
   title: (d: Doc) => string;
   detail: (d: Doc) => string;
   href: (d: Doc) => string;
+  /**
+   * What happens when the last step approves. Runs after the decision is
+   * saved; if it ever fails, the scheduled job (server/jobs.ts) catches up,
+   * because each hook only acts on "approved but not yet done" records.
+   */
+  onApproved?: (id: Types.ObjectId, ctx: Ctx, now: Date) => Promise<unknown>;
 };
 
 const SOURCES: Source[] = [
@@ -46,7 +56,24 @@ const SOURCES: Source[] = [
     detail: (d) => `${d.number} · grade ${d.grade} · ${d.employmentType}`,
     href: (d) => `/recruitment/requisitions/${d._id}`,
   },
-  // M4: promotions, separations.
+  {
+    type: "promotion",
+    label: "Promotion",
+    model: Movement as AnyModel,
+    title: (d) => `${d.employeeName}: ${d.kind} to ${(d.to as { jobTitle: string }).jobTitle}`,
+    detail: (d) => `${d.number} · ${(d.from as { grade: string }).grade} → ${(d.to as { grade: string }).grade} · from ${d.effectiveDate}`,
+    href: (d) => `/promotions/${d._id}`,
+    onApproved: (id, ctx, now) => applyMovementIfDue(id, now, { id: ctx.userId, name: ctx.name, ip: ctx.ip }),
+  },
+  {
+    type: "separation",
+    label: "Exit",
+    model: Separation as AnyModel,
+    title: (d) => `${d.employeeName}: ${String(d.kind).replace(/_/g, " ")}`,
+    detail: (d) => `${d.number} · last day ${d.lastDay}`,
+    href: (d) => `/separations/${d._id}`,
+    onApproved: (id, _ctx, now) => startClearance(id, now),
+  },
 ];
 
 export type InboxItem = {
@@ -125,6 +152,14 @@ export async function decide(ctx: Ctx, type: string, id: string, input: unknown,
     { $set: { workflow: wf } },
   );
   if (!res.modifiedCount) throw new AppError("Someone else just decided this request. Refresh to see the latest.");
+
+  if (wf.status === "approved" && source.onApproved) {
+    try {
+      await source.onApproved(doc._id, ctx, now);
+    } catch (err) {
+      console.error(`onApproved for ${type} ${id} failed; the scheduled job will retry`, err);
+    }
+  }
 
   const outcome = wf.status === "approved" ? "fully approved" : wf.status === "rejected" ? "rejected" : `approved (${decided.join(" + ")}), now with ${wf.steps[wf.current].label}`;
   await record(ctx, {

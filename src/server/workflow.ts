@@ -117,6 +117,13 @@ export type WorkflowState = {
   closedAt: Date | null;
 };
 
+/** For scopeFilter() on any collection that embeds a workflow: requests carry a copy of the employee's scope fields. */
+export const WORKFLOW_SUBJECT_FIELDS = {
+  id: "workflow.subject.employeeId",
+  departmentId: "workflow.subject.departmentId",
+  managerPath: "workflow.subject.managerPath",
+};
+
 /** The workflow's subject in the shape authz.can() expects. */
 export function subjectOf(wf: Pick<WorkflowState, "subject">) {
   return { _id: wf.subject.employeeId, departmentId: wf.subject.departmentId, managerPath: wf.subject.managerPath };
@@ -128,8 +135,12 @@ export function subjectOf(wf: Pick<WorkflowState, "subject">) {
 
 type SubjectEmployee = { _id: Types.ObjectId; departmentId: Types.ObjectId; managerPath: Types.ObjectId[] };
 
-/** Walk up the reporting line to the first active manager who holds `perm` for this employee. */
-async function nearestApprover(subject: SubjectEmployee, perm: Permission) {
+/**
+ * Walk up the reporting line to the first active manager who holds `perm`
+ * for this employee, skipping whoever submitted the request. (When a team
+ * lead proposes their report's promotion, it goes to the lead's boss.)
+ */
+async function nearestApprover(subject: SubjectEmployee, perm: Permission, requesterUserId: string) {
   const chain = [...subject.managerPath].reverse(); // nearest first
   if (!chain.length) return null;
   const [users, people] = await Promise.all([
@@ -138,7 +149,7 @@ async function nearestApprover(subject: SubjectEmployee, perm: Permission) {
   ]);
   for (const managerId of chain) {
     const user = users.find((u) => String(u.employeeId) === String(managerId));
-    if (!user) continue;
+    if (!user || String(user._id) === requesterUserId) continue;
     const ctx = await ctxForUser(user, null);
     if (can(ctx, perm, subject)) {
       const p = people.find((x) => String(x._id) === String(managerId))!;
@@ -164,7 +175,7 @@ export async function startWorkflow(
       decidedById: null, decidedByName: null, decidedAt: null, comment: "",
     };
     if (s.approver.kind === "manager") {
-      const m = await nearestApprover(subject, s.approver.perm);
+      const m = await nearestApprover(subject, s.approver.perm, requester.userId);
       steps.push(
         m
           ? { ...base, assigneeId: m.id, assigneeName: m.name }

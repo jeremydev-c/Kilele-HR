@@ -15,6 +15,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const approver = (["leave:approve", "promotion:approve", "separation:approve", "recruitment:manage"] as const).some((p) => has(ctx, p));
   const leaveScopes = ctx.grants.get("leave:read");
   const seesOthersLeave = !!leaveScopes && [...leaveScopes].some((s) => s !== "own");
+  // Everyone may resign (separation:initiate@own, via "Resign" on their profile); the Exits menu is for people who handle others' exits.
+  const exitScopes = ctx.grants.get("separation:initiate");
+  const managesExits = !!exitScopes && [...exitScopes].some((s) => s !== "own");
 
   type Item = NavSection["items"][number];
   const only = (allowed: boolean, item: Item) => (allowed ? [item] : []);
@@ -39,6 +42,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ...only(!!ctx.employee && has(ctx, "leave:apply"), { href: "/leave", label: "My leave", icon: "leave" }),
         ...only(approver || waiting > 0, { href: "/approvals", label: "Approvals", icon: "inbox", badge: waiting }),
         ...only(seesOthersLeave, { href: "/leave/calendar", label: "Leave calendar", icon: "calendar" }),
+      ],
+    },
+    {
+      title: "Career moves",
+      items: [
+        ...only(has(ctx, "promotion:initiate") || has(ctx, "promotion:approve"), { href: "/promotions", label: "Promotions", icon: "promotion" }),
+        ...only(managesExits || has(ctx, "separation:approve") || has(ctx, "clearance:signoff"), { href: "/separations", label: "Exits", icon: "exit" }),
       ],
     },
     {

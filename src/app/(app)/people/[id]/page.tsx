@@ -73,7 +73,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export default async function EmployeePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const ctx = await requireCtx();
-  const { view: e, managerVisible, reports, history } = await load(getEmployee(ctx, id));
+  const { view: e, managerVisible, reports, history, actions } = await load(getEmployee(ctx, id));
   const editable = e.access.edit && e.status !== "separated";
   const editHref = (section: string) => (editable ? `/people/${e.id}/edit#${section}` : undefined);
 
@@ -92,9 +92,20 @@ export default async function EmployeePage({ params }: { params: Promise<{ id: s
             {e.access.own && <Badge tone="violet">You</Badge>}
           </div>
         </div>
-        {editable && (
-          <Link href={`/people/${e.id}/edit`} className="btn-secondary"><Pencil className="size-4" /> Edit</Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {editable && (
+            <Link href={`/people/${e.id}/edit`} className="btn-secondary"><Pencil className="size-4" /> Edit</Link>
+          )}
+          {actions.promote && (
+            <Link href={`/promotions/new?employee=${e.id}`} className="btn-secondary"><TrendingUp className="size-4" /> Propose promotion</Link>
+          )}
+          {actions.separate && (
+            <Link href={`/separations/new?employee=${e.id}`} className="btn-secondary"><UserMinus className="size-4" /> Start exit</Link>
+          )}
+          {actions.resign && (
+            <Link href="/separations/new?self=1" className="btn-secondary"><UserMinus className="size-4" /> Resign</Link>
+          )}
+        </div>
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">

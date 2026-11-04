@@ -177,6 +177,22 @@ flowchart LR
 - **Hire = no retyping.** HR adds what's collected on the first day (ID, KRA PIN…). Job, grade, department, manager, start date and the *offer's* salary carry over through the same `createEmployee()` used everywhere. An HR Officer without pay rights can still onboard, because the salary was already approved in the offer. The vacancy is marked filled when every opening is hired.
 - **CVs live in MongoDB (GridFS)**: no extra storage service, backed up with the database, and it works offline. Opening a CV is audited.
 
+### Promotions and demotions
+- **Proposed** by anyone holding `promotion:initiate` for that person (a line manager for their team, HR for everyone), never for themselves. A higher grade is a promotion, a lower one a demotion, and a title change on the same grade is just a profile edit.
+- **Approved by two different people** (`distinctApprovers: true`): first the nearest manager *above the proposer* (the engine skips whoever submitted the request, so Collins' proposal for Mercy goes to David), then HR (`promotion:approve@all`).
+- **Pay without seeing pay.** A line manager can't see salaries, so they can't type one. The pay moves into the new grade's band automatically: at least the new minimum on promotion (never a cut), capped at the new maximum on demotion. Someone with pay rights for that person can set a figure inside the band.
+- **Effective dates are respected.** On final approval the change is applied at once if its date has come. Otherwise it waits as *Scheduled*, and the scheduled job applies it on the day. Either way it writes the employee record and an employment event in one transaction.
+
+### Exits (separation)
+- **Started by** the employee (resignation only, via *Resign* on their profile), their manager, or HR (any kind: resignation, retirement, termination, end of contract). Terminations need a full written reason. A notice shorter than 28 days (Employment Act s.35) is flagged for pay in lieu.
+- **Approved by** the line manager, then HR (two different people).
+- **Clearance:** on approval, a checklist is created. Each item belongs to a department (IT gets the laptop back and switches off access, Finance settles loans and final dues, HR collects the badge and issues the certificate of service required by s.51, the leaver's own department confirms handover). Only someone *in that department* with `clearance:signoff` can sign an item, and never the leaver. Unused annual leave is shown for the final dues.
+- **Exit interview:** the leaver rates five areas and says why they're leaving. The answers are visible to HR only, not the manager, so people can be honest. The audit trail records *that* it was submitted, not what was said.
+- **Completion:** when everything is signed and the last day has come, in one transaction the employee is marked separated, a separation event is added to their history, and their login is disabled with every session invalidated. Upcoming retirements (60th birthday within 12 months) are listed for HR, with a one-click *Start retirement*.
+
+### The scheduled job (`src/server/jobs.ts`)
+Some things happen on a date, not on a click: a promotion's effective date, an exit's last day. `src/instrumentation.ts` starts `runDueJobs()` when the server boots, then every 10 minutes. Every step is **idempotent**: it claims the record with a conditional update (`appliedAt: null` → now, `completedAt: null` → now), so two runs at once, or the job and a click at once, still apply each change exactly once. It also catches up on any approval hook that failed. In production with several servers, this would move to one cron worker.
+
 ## 6. Modules
 
 | # | Module | What it does |
@@ -211,6 +227,8 @@ Entries are **hash-chained**, the same idea as the E-ELECTIONS ballot ledger: ea
 | `vacancies` | slug, requisitionId, advert text, closesOn, status, questions[] (weights, knock-outs), criteria[], hired / openings |
 | `applications` | number, vacancyId, candidate{}, answers[], score, knockouts[], cvFileId (GridFS), stage, history[], interviews[{panel[], scorecards[]}], offer{}, statusTokenHash, consentAt, employeeId |
 | `cvs.files` / `cvs.chunks` | CV PDFs (GridFS) |
+| `movements` | number, kind (promotion/demotion), employeeId, from{title, grade, pay}, to{…}, salaryChosen, effectiveDate, justification, appliedAt, workflow{} |
+| `separations` | number, kind, employeeId, lastDay, reason, clearance[{department, item, signedBy, signedAt}], exitInterview{} (HR-only), completedAt, workflow{} |
 | `movementRequests` | employeeId, kind (promotion/demotion), from{}, to{}, justification, workflow{} |
 | `separations` | employeeId, kind, lastDay, workflow{}, clearance[], exitInterview{} |
 | `auditLogs` | seq (unique), at, actor, action, entity, entityId, changes[], reason, ip, prevHash, hash |
@@ -225,8 +243,15 @@ Weekly check-ins with Charles (proposed Fri 5pm). Each milestone ends with the a
 | Fri 13 Nov | **M1: People** ✅ built 4 Nov | Employee directory, profiles, PII masking and reveal, encryption at rest, org chart, employment history |
 | Fri 20 Nov | **M2: Leave and approvals** ✅ built 4 Nov | Workflow engine, My Approvals inbox, leave types, balances, calendar |
 | Fri 27 Nov | **M3: Recruitment** ✅ built 4–5 Nov | Requisition → careers page → apply → shortlist → interview → hire |
-| Fri 4 Dec | **M4: Movements and exits** | Promotions/demotions, separation with clearance and exit interview, dashboard, polish, demo script rehearsal |
+| Fri 4 Dec | **M4: Movements and exits** ✅ built 5 Nov | Promotions/demotions, separation with clearance and exit interview, dashboard, polish, demo script rehearsal |
 | Early Dec | **Demo day at Strathmore** | 10-minute live demo (`docs/DEMO.md`) |
 
 ## 10. Out of scope (would come next)
-Payroll calculation (PAYE, NSSF, SHIF, Housing Levy), email and SMS notifications, two-factor login, performance reviews, a mobile app. The auth, audit and encryption pieces are reusable for the second challenge, the Whistleblower Protection App.
+- **Payroll** (PAYE, NSSF, SHIF, Housing Levy). The pay data, grades and events are ready for it.
+- **Notifications** by email or SMS (e.g. Africa's Talking) for "waiting for your approval" and candidate updates.
+- **Two-factor login** for HR and admin roles.
+- **Delegation:** an approver on leave hands their inbox to a deputy for a date range (the engine already routes by rules, so it's one more rule).
+- **Data retention job:** delete unsuccessful applications and CVs after 12 months, as the consent text promises. It would run in the same scheduled job.
+- **Performance reviews**, and a mobile app.
+
+The auth, audit, encryption and approval-engine pieces are reusable for the second challenge, the Whistleblower Protection App.

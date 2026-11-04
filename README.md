@@ -15,7 +15,7 @@ An ERP-style HR management system: access control, employee records, recruitment
 | M1 People: employee directory and profiles, field-level PII access, reveal with reason, encryption, org chart, career history | ✅ Done (4 Nov) |
 | M2 Leave and the shared approval engine: My Approvals inbox, Kenyan leave rules, live balances, team calendar | ✅ Done (4 Nov) |
 | M3 Recruitment: requisition → public careers site → apply with CV → screening score → shortlist → blind panel scorecards → offer → hire | ✅ Done (5 Nov) |
-| M4 Promotions/demotions, separation, dashboard | Next (4 Dec) |
+| M4 Promotions/demotions (two-person approval, band-safe pay, effective dates), exits (clearance, HR-only exit interview, auto-close), HR dashboard, scheduled job | ✅ Done (5 Nov) |
 
 ## Run it
 
@@ -56,9 +56,10 @@ The public careers site is at http://localhost:3000/careers (no login). `npm run
 |---|---|
 | `npm run dev` | Dev server |
 | `npm run db` | Local MongoDB |
-| `npm run seed` | Wipe and load demo data (refuses non-local databases without `--force`) |
+| `npm run seed` | Wipe and load demo data, with dates shifted to the current week (refuses non-local databases without `--force`) |
+| `npm run seed:test` | The same data pinned to the week of 4 Nov 2026, which the database tests expect |
 | `npm test` | Unit tests: permission engine, Kenyan holidays and working days, screening scores (no database needed) |
-| `npm run test:db` | Employee, leave/approval and recruitment tests against the seeded local database (run `npm run seed` after) |
+| `npm run test:db` | Employee, leave/approval, recruitment, promotion and exit tests (run `npm run seed:test` first, `npm run seed` after) |
 | `npm run typecheck` / `npm run lint` | Static checks |
 
 ## Code map
@@ -76,6 +77,7 @@ src/
   lib/screening.ts        screening-question scoring and knock-outs (pure)
   server/files.ts         CV storage in MongoDB GridFS, PDF-only
   app/careers/            the public careers site and the candidate's private status page
+  server/jobs.ts          the scheduled job: effective-dated promotions, exits on their last day (started by instrumentation.ts)
   server/services/        business logic; every function takes ctx and checks permissions itself
   server/models/          Mongoose schemas
   app/                    pages (Server Components) and Server Actions

@@ -139,7 +139,13 @@ export async function getEmployee(ctx: Ctx, id: string) {
     });
   }
 
-  return { view, managerVisible, reports, history };
+  const current = e.status !== "separated";
+  const actions = {
+    promote: current && !view.access.own && can(ctx, "promotion:initiate", e),
+    separate: current && !view.access.own && can(ctx, "separation:initiate", e),
+    resign: current && view.access.own && can(ctx, "separation:initiate", e),
+  };
+  return { view, managerVisible, reports, history, actions };
 }
 
 const RevealInput = z.object({
@@ -627,6 +633,20 @@ export async function listDepartments() {
   await connectDB();
   const depts = await Department.find().sort({ name: 1 }).lean();
   return depts.map((d) => ({ id: String(d._id), name: d.name, code: d.code }));
+}
+
+/** Current employees this person may act on with `perm` (e.g. whom a manager may propose for promotion), excluding themselves. */
+export async function employeesWithin(ctx: Ctx, perm: "promotion:initiate" | "separation:initiate") {
+  const scope = scopeFilter(ctx, perm);
+  if (!scope) return [];
+  await connectDB();
+  const people = await Employee.find({ $and: [scope, { status: { $ne: "separated" } }] })
+    .select("firstName lastName jobTitle grade")
+    .sort({ firstName: 1 })
+    .lean();
+  return people
+    .filter((p) => String(p._id) !== ctx.employee?.id)
+    .map((p) => ({ id: String(p._id), label: `${fullName(p)} · ${p.jobTitle} (${p.grade})`, jobTitle: p.jobTitle, grade: p.grade }));
 }
 
 /** Everyone who could be picked as a manager (current employees). */
