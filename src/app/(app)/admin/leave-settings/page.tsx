@@ -29,8 +29,8 @@ export default async function LeaveSettingsPage() {
   return (
     <>
       <PageHeader
-        title="Leave settings"
-        subtitle="Policies are data: change an entitlement here and every balance updates, because balances are always worked out fresh, never stored."
+        title="Leave policy"
+        subtitle="Entitlements, public holidays and balance corrections."
       />
 
       <section className="mb-8">
@@ -71,7 +71,7 @@ export default async function LeaveSettingsPage() {
         <section className="card overflow-hidden">
           <div className="border-b border-stone-200 px-4 py-3">
             <h2 className="font-semibold">Public holidays</h2>
-            <p className="text-sm text-stone-500">Fixed holidays and Easter are calculated. Add Eid and one-off gazetted days here.</p>
+            <p className="text-sm text-stone-500">Fixed dates and Easter are automatic. Add Eid and other gazetted days here.</p>
           </div>
           <ul className="max-h-96 divide-y divide-stone-100 overflow-y-auto text-sm">
             {holidays.map((h) => {
@@ -108,7 +108,7 @@ export default async function LeaveSettingsPage() {
         <section className="card self-start p-4">
           <h2 className="font-semibold">Adjust a balance</h2>
           <p className="mb-4 text-sm text-stone-500">
-            For corrections, e.g. +1 day in lieu for working on a public holiday. Always needs a reason, and goes in the audit trail.
+            For example, +1 day for working on a public holiday.
           </p>
           <ActionForm action={adjustBalanceAction} className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">

@@ -52,7 +52,7 @@ export default async function OrgChartPage() {
     <>
       <PageHeader
         title="Org chart"
-        subtitle={`Who reports to whom: ${total} ${total === 1 ? "person" : "people"} within your access. Tap a count to expand or collapse a team.`}
+        subtitle={`${total} ${total === 1 ? "person" : "people"}`}
         back={{ href: "/people", label: "People" }}
       />
       <ul className="max-w-3xl space-y-2">

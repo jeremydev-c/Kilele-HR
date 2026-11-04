@@ -17,8 +17,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader
-        title="User accounts"
-        subtitle="Who can sign in, and with which roles."
+        title="Users"
         actions={
           has(ctx, "user:manage") && (
             <Link href="/admin/users/new" className="btn-primary">

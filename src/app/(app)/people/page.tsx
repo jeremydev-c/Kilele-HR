@@ -7,6 +7,7 @@ import { load } from "@/server/page";
 import { listDepartments, listEmployees } from "@/server/services/employees";
 import { Empty, PageHeader } from "@/components/ui";
 import { Avatar, StatusBadge } from "@/components/people";
+import { AutoSelect } from "@/components/AutoSelect";
 
 export const metadata: Metadata = { title: "People" };
 
@@ -27,7 +28,7 @@ export default async function PeoplePage({
     <>
       <PageHeader
         title="People"
-        subtitle={`${people.length} ${people.length === 1 ? "person" : "people"} you can see. What you see depends on your access.`}
+        subtitle={`${people.length} ${people.length === 1 ? "person" : "people"}`}
         actions={
           <>
             <Link href="/org-chart" className="btn-secondary"><Network className="size-4" /> Org chart</Link>
@@ -44,21 +45,21 @@ export default async function PeoplePage({
           <input
             name="q"
             defaultValue={sp.q}
-            placeholder={canPii ? "Name, staff no., email or National ID" : "Name, staff no. or email"}
+            placeholder={canPii ? "Search name, email or ID" : "Search name or email"}
+            aria-label="Search"
             className="input pl-9"
           />
         </div>
-        <select name="dept" defaultValue={sp.dept ?? ""} className="input w-auto">
+        <AutoSelect name="dept" defaultValue={sp.dept ?? ""} label="Department">
           <option value="">All departments</option>
           {depts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
-        <select name="status" defaultValue={sp.status ?? "current"} className="input w-auto">
+        </AutoSelect>
+        <AutoSelect name="status" defaultValue={sp.status ?? "current"} label="Status">
           <option value="current">Current staff</option>
           <option value="probation">On probation</option>
           <option value="separated">Former staff</option>
           <option value="all">Everyone</option>
-        </select>
-        <button className="btn-secondary">Filter</button>
+        </AutoSelect>
       </form>
 
       <div className="card overflow-x-auto">
@@ -69,7 +70,7 @@ export default async function PeoplePage({
               <th>Job</th>
               <th className="hidden md:table-cell">Department</th>
               <th className="hidden lg:table-cell">Reports to</th>
-              <th>Status</th>
+              <th><span className="sr-only">Status</span></th>
             </tr>
           </thead>
           <tbody>
@@ -79,7 +80,7 @@ export default async function PeoplePage({
                   <Link href={`/people/${p.id}`} className="flex items-center gap-3">
                     <Avatar name={p.fullName} size="sm" />
                     <span>
-                      <span className="block font-medium text-brand-800 hover:underline">{p.fullName}</span>
+                      <span className="block font-medium hover:text-brand-700">{p.fullName}</span>
                       <span className="block text-xs text-stone-500">{p.staffNo} · {p.workEmail}</span>
                     </span>
                   </Link>
@@ -90,12 +91,12 @@ export default async function PeoplePage({
                 </td>
                 <td className="hidden md:table-cell">{p.departmentName}</td>
                 <td className="hidden text-stone-600 lg:table-cell">{p.manager?.name ?? "—"}</td>
-                <td><StatusBadge status={p.status} /></td>
+                <td className="text-right">{p.status !== "active" && <StatusBadge status={p.status} />}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {!people.length && <Empty>No one matches. {sp.q && /^\d{7,8}$/.test(sp.q) && "National ID search only finds people whose personal details you're allowed to see."}</Empty>}
+        {!people.length && <Empty icon={Search}>No one matches your search.</Empty>}
       </div>
     </>
   );

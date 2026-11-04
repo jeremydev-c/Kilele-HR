@@ -27,7 +27,7 @@ export default async function NewSeparationPage({ searchParams }: { searchParams
     <>
       <PageHeader
         title={self ? "Resign" : "Start an exit"}
-        subtitle={`It goes to the line manager, then HR. Kenyan law expects ${NOTICE_DAYS} days' notice for monthly-paid staff (or pay in lieu).`}
+        subtitle={`Needs manager and HR approval. Notice is usually ${NOTICE_DAYS} days.`}
         back={{ href: "/separations", label: "Exits" }}
       />
       <ActionForm action={startSeparationAction} className="card max-w-3xl space-y-5 p-6">

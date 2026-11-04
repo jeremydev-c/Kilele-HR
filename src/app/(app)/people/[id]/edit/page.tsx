@@ -23,12 +23,12 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
     <>
       <PageHeader
         title={`Edit ${e.fullName}`}
-        subtitle="Each section saves on its own. Every change is recorded in the audit trail and, for job changes, in their career history."
+        subtitle="Each section saves separately."
         back={{ href: `/people/${e.id}`, label: e.fullName }}
       />
       <div className="max-w-4xl space-y-6">
         <ActionForm action={save("directory")} className="card space-y-5 p-6">
-          <FormSection id="directory" title="Employment" subtitle={`Grade ${e.gradeLabel}. Grade changes go through a promotion or demotion request so they're approved.`}>
+          <FormSection id="directory" title="Employment" subtitle={`Grade ${e.gradeLabel}. To change the grade, propose a promotion.`}>
             <DirectoryFields
               d={{
                 firstName: e.firstName, lastName: e.lastName, otherNames: e.otherNames, gender: e.gender, workEmail: e.workEmail,
@@ -66,7 +66,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
 
         {pii && (
           <ActionForm action={save("pii")} className="card space-y-5 p-6">
-            <FormSection id="pii" title="Personal & statutory" subtitle="Opening this form was logged in the audit trail, because it shows the full values.">
+            <FormSection id="pii" title="Personal & statutory" subtitle="Opening this section is logged.">
               <PiiFields p={pii} />
             </FormSection>
             <div className="flex justify-end"><button className="btn-primary">Save personal details</button></div>
@@ -78,7 +78,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
             <FormSection
               id="pay"
               title="Pay"
-              subtitle={grade ? `${grade.code} band: ${kes(grade.min)} – ${kes(grade.max)}. Outside the band needs a promotion or demotion.` : undefined}
+              subtitle={grade ? `${grade.code} band: ${kes(grade.min)} – ${kes(grade.max)}` : undefined}
             >
               <Input name="basicSalary" label="Basic salary (KES / month)" type="number" defaultValue={e.pay.basicSalary} required />
               <Input name="reason" label="Reason" required placeholder="e.g. 2027 annual increment" />

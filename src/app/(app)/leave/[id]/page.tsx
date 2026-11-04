@@ -4,7 +4,8 @@ import { AlertTriangle, CheckCircle2, Users } from "lucide-react";
 import { requireCtx } from "@/server/context";
 import { load } from "@/server/page";
 import { getLeave } from "@/server/services/leave";
-import { ActionForm, FieldError } from "@/components/ActionForm";
+import { ActionForm } from "@/components/ActionForm";
+import { DecisionPanel, WaitingNote } from "@/components/DecisionPanel";
 import { Badge, PageHeader, fmtDate } from "@/components/ui";
 import { WorkflowBadge, WorkflowTimeline } from "@/components/workflow";
 import { cancelLeaveAction } from "../actions";
@@ -42,6 +43,7 @@ export default async function LeaveRequestPage({
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <div className="space-y-6">
+          {canDecide && <DecisionPanel action={decideAction.bind(null, "leave", id)} step={wf.steps[wf.current].label} />}
           <section className="card p-5">
             <h2 className="mb-3 font-semibold">Request</h2>
             <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
@@ -56,7 +58,7 @@ export default async function LeaveRequestPage({
 
           {(balance || alsoAway.length > 0) && (
             <section className="card p-5">
-              <h2 className="mb-3 font-semibold">{canDecide ? "Before you decide" : "Balance and cover"}</h2>
+              <h2 className="mb-3 font-semibold">{canDecide ? "Before you decide" : "Balance"}</h2>
               {balance && (
                 <p className="text-sm">
                   {doc.typeName} balance for {doc.year}: <b>{balance.available}</b> days left
@@ -66,7 +68,7 @@ export default async function LeaveRequestPage({
               <div className="mt-3">
                 <p className="flex items-center gap-2 text-sm font-medium">
                   {alsoAway.length ? <AlertTriangle className="size-4 text-amber-600" /> : <Users className="size-4 text-stone-400" />}
-                  {alsoAway.length ? `${alsoAway.length} other${alsoAway.length === 1 ? "" : "s"} in the department away on some of these days` : "Nobody else in the department is away then."}
+                  {alsoAway.length ? `${alsoAway.length} other${alsoAway.length === 1 ? "" : "s"} in the team away at the same time` : "No one else in the team is away then."}
                 </p>
                 <ul className="mt-2 space-y-1 text-sm">
                   {alsoAway.map((a, i) => (
@@ -80,24 +82,8 @@ export default async function LeaveRequestPage({
             </section>
           )}
 
-          {canDecide && (
-            <section className="card border-amber-300 p-5">
-              <h2 className="font-semibold">Your decision: {wf.steps[wf.current].label}</h2>
-              <ActionForm action={decideAction.bind(null, "leave", id)} className="mt-3 space-y-3">
-                <div>
-                  <label className="label" htmlFor="comment">Comment (needed if you reject)</label>
-                  <textarea id="comment" name="comment" rows={2} className="input" />
-                  <FieldError name="comment" />
-                </div>
-                <div className="flex gap-2">
-                  <button name="decision" value="approve" className="btn-primary">Approve</button>
-                  <button name="decision" value="reject" className="btn-danger">Reject</button>
-                </div>
-              </ActionForm>
-            </section>
-          )}
           {!canDecide && wf.status === "pending" && whyNot && !own && (
-            <p className="rounded-lg bg-stone-100 px-4 py-3 text-sm text-stone-600">{whyNot}</p>
+            <WaitingNote>{whyNot}</WaitingNote>
           )}
         </div>
 

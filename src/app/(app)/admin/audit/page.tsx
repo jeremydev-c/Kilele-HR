@@ -33,8 +33,8 @@ export default async function AuditPage({
   return (
     <>
       <PageHeader
-        title="Audit trail"
-        subtitle="Every change and every view of personal data: who, what, when, from where. Entries are hash-chained, so editing or deleting one is detectable."
+        title="Audit log"
+        subtitle="Who did what, and when."
       />
 
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">

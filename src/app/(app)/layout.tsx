@@ -21,11 +21,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   type Item = NavSection["items"][number];
   const only = (allowed: boolean, item: Item) => (allowed ? [item] : []);
+  // Your own things first, then the company, then admin.
   const all: NavSection[] = [
     {
       title: "",
       items: [
-        { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+        { href: "/dashboard", label: "Home", icon: "home" },
+        ...only(approver || waiting > 0, { href: "/approvals", label: "Approvals", icon: "inbox", badge: waiting }),
+        ...only(!!ctx.employee && has(ctx, "leave:apply"), { href: "/leave", label: "My leave", icon: "leave", exact: true }),
         ...only(!!ctx.employee, { href: `/people/${ctx.employee?.id}`, label: "My profile", icon: "person" }),
       ],
     },
@@ -34,52 +37,43 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items: [
         ...only(has(ctx, "employee:read"), { href: "/people", label: "Directory", icon: "people" }),
         ...only(has(ctx, "employee:read"), { href: "/org-chart", label: "Org chart", icon: "org" }),
+        ...only(seesOthersLeave, { href: "/leave/calendar", label: "Who's away", icon: "calendar" }),
       ],
     },
     {
-      title: "Leave",
+      title: "Workforce",
       items: [
-        ...only(!!ctx.employee && has(ctx, "leave:apply"), { href: "/leave", label: "My leave", icon: "leave" }),
-        ...only(approver || waiting > 0, { href: "/approvals", label: "Approvals", icon: "inbox", badge: waiting }),
-        ...only(seesOthersLeave, { href: "/leave/calendar", label: "Leave calendar", icon: "calendar" }),
-      ],
-    },
-    {
-      title: "Career moves",
-      items: [
+        ...only(
+          (["requisition:create", "recruitment:manage", "application:review", "interview:score"] as const).some((p) => has(ctx, p)),
+          { href: "/recruitment", label: "Hiring", icon: "hiring" },
+        ),
         ...only(has(ctx, "promotion:initiate") || has(ctx, "promotion:approve"), { href: "/promotions", label: "Promotions", icon: "promotion" }),
         ...only(managesExits || has(ctx, "separation:approve") || has(ctx, "clearance:signoff"), { href: "/separations", label: "Exits", icon: "exit" }),
       ],
     },
     {
-      title: "Hiring",
+      title: "Admin",
       items: [
-        ...only(
-          (["requisition:create", "recruitment:manage", "application:review", "interview:score"] as const).some((p) => has(ctx, p)),
-          { href: "/recruitment", label: "Recruitment", icon: "hiring" },
-        ),
-      ],
-    },
-    {
-      title: "Administration",
-      items: [
-        ...only(has(ctx, "leave:manage"), { href: "/admin/leave-settings", label: "Leave settings", icon: "settings" }),
         ...only(has(ctx, "user:read"), { href: "/admin/users", label: "Users", icon: "users" }),
-        ...only(has(ctx, "role:manage"), { href: "/admin/roles", label: "Roles & permissions", icon: "shield" }),
-        ...only(has(ctx, "audit:read"), { href: "/admin/audit", label: "Audit trail", icon: "audit" }),
+        ...only(has(ctx, "role:manage"), { href: "/admin/roles", label: "Roles", icon: "shield" }),
+        ...only(has(ctx, "leave:manage"), { href: "/admin/leave-settings", label: "Leave policy", icon: "settings" }),
+        ...only(has(ctx, "audit:read"), { href: "/admin/audit", label: "Audit log", icon: "audit" }),
       ],
     },
   ];
   const sections = all.filter((s) => s.items.length > 0);
 
   return (
-    <div className="lg:grid lg:min-h-screen lg:grid-cols-[16rem_1fr]">
+    <div className="lg:grid lg:min-h-screen lg:grid-cols-[15.5rem_1fr]">
       <Sidebar
         sections={sections}
-        user={{ name: ctx.name, email: ctx.email, roles: ctx.roleNames }}
+        canSearch={has(ctx, "employee:read")}
+        user={{ name: ctx.name, roles: ctx.roleNames }}
         logout={logoutAction}
       />
-      <main className="min-w-0 px-4 py-6 sm:px-8 lg:py-8">{children}</main>
+      <main className="min-w-0 px-4 pt-6 pb-16 sm:px-8 lg:px-10 lg:pt-10">
+        <div className="mx-auto max-w-6xl">{children}</div>
+      </main>
     </div>
   );
 }

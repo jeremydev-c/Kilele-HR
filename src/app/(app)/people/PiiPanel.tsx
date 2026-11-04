@@ -63,14 +63,14 @@ export function PiiPanel({ employeeId, fields, own }: { employeeId: string; fiel
       <div className="mt-4 border-t border-stone-100 pt-4">
         {values ? (
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span className="text-amber-700">Visible for {left}s. This view is in the audit trail.</span>
+            <span className="text-amber-700">Hides in {left}s · logged</span>
             <button type="button" className="btn-secondary" onClick={() => setValues(null)}>
               <EyeOff className="size-4" /> Hide now
             </button>
           </div>
         ) : asking && !own ? (
           <div className="space-y-2">
-            <label className="label" htmlFor="reveal-reason">Why do you need to see these details?</label>
+            <label className="label" htmlFor="reveal-reason">Reason for viewing</label>
             <div className="flex flex-wrap gap-2">
               <input
                 id="reveal-reason"
@@ -86,7 +86,7 @@ export function PiiPanel({ employeeId, fields, own }: { employeeId: string; fiel
               </button>
               <button type="button" className="btn-secondary" onClick={() => setAsking(false)}>Cancel</button>
             </div>
-            <p className="text-xs text-stone-500">Your name, this reason and the time are recorded in the audit trail.</p>
+            <p className="text-xs text-stone-500">Your reason is saved in the audit log.</p>
           </div>
         ) : (
           <button type="button" className="btn-secondary" disabled={pending} onClick={() => (own ? reveal() : setAsking(true))}>

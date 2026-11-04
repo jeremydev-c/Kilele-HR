@@ -28,8 +28,8 @@ export default async function ProposePage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader
-        title="Propose a promotion or demotion"
-        subtitle="A higher grade makes it a promotion, a lower one a demotion. It goes to your own manager, then HR."
+        title="Propose a promotion"
+        subtitle="Goes to your manager, then HR. Pick a lower grade for a demotion."
         back={{ href: "/promotions", label: "Promotions" }}
       />
       <ActionForm action={proposeMovementAction} className="card max-w-3xl space-y-5 p-6">
@@ -41,7 +41,7 @@ export default async function ProposePage({ searchParams }: { searchParams: Prom
           {seesPay ? (
             <Input name="basicSalary" label="New basic salary (optional)" type="number" hint="Blank = moved into the new grade's band automatically." />
           ) : (
-            <p className="self-end text-sm text-stone-500">Pay moves into the new grade&apos;s band automatically (never a cut on promotion). HR can see the figure.</p>
+            <p className="self-end text-sm text-stone-500">Pay moves into the new grade&apos;s band automatically.</p>
           )}
         </div>
         <div>

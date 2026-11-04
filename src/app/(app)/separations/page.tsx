@@ -18,13 +18,12 @@ export default async function SeparationsPage() {
     <>
       <PageHeader
         title="Exits"
-        subtitle="Resignations, retirements, terminations and contract ends: approval, clearance, exit interview, then the record closes on the last day."
         actions={canStart && <Link href="/separations/new" className="btn-primary"><Plus className="size-4" /> Start an exit</Link>}
       />
 
       {clearanceTasks.length > 0 && (
         <section className="card mb-6 border-amber-300 overflow-hidden">
-          <h2 className="flex items-center gap-2 border-b border-stone-200 px-4 py-3 font-semibold"><ClipboardCheck className="size-4 text-amber-600" /> Clearance for your department to sign</h2>
+          <h2 className="flex items-center gap-2 border-b border-stone-200 px-4 py-3 font-semibold"><ClipboardCheck className="size-4 text-amber-600" /> Waiting for your department</h2>
           <ul className="divide-y divide-stone-100 text-sm">
             {clearanceTasks.map((t, i) => (
               <li key={i}>
@@ -40,7 +39,7 @@ export default async function SeparationsPage() {
 
       {retirements && retirements.length > 0 && (
         <section className="card mb-6 overflow-hidden">
-          <h2 className="flex items-center gap-2 border-b border-stone-200 px-4 py-3 font-semibold"><Hourglass className="size-4 text-stone-500" /> Retiring in the next 12 months (age 60)</h2>
+          <h2 className="flex items-center gap-2 border-b border-stone-200 px-4 py-3 font-semibold"><Hourglass className="size-4 text-stone-500" /> Retiring in the next year</h2>
           <ul className="divide-y divide-stone-100 text-sm">
             {retirements.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
@@ -60,7 +59,7 @@ export default async function SeparationsPage() {
       )}
 
       <section className="card overflow-hidden">
-        <h2 className="border-b border-stone-200 px-4 py-3 font-semibold">All exits you can see</h2>
+        <h2 className="border-b border-stone-200 px-4 py-3 font-semibold">All exits</h2>
         <ul className="divide-y divide-stone-100">
           {items.map((s) => (
             <li key={String(s._id)}>

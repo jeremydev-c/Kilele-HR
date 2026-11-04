@@ -38,17 +38,17 @@ import { demoCvPdf } from "./demoPdf";
 /** Kenyan defaults (Employment Act 2007). HR can change them in Leave settings. */
 const LEAVE_TYPES = [
   { code: "ANNUAL", name: "Annual leave", daysPerYear: 21, dayCount: "working", proRata: true, carryOverMax: 5, order: 1,
-    description: "21 working days a year (Employment Act s.28). New joiners get a share for the months left in the year; up to 5 unused days roll over." },
+    description: "21 working days a year. Up to 5 unused days carry over." },
   { code: "SICK", name: "Sick leave", daysPerYear: 14, dayCount: "working", minServiceMonths: 2, backdateDays: 7, order: 2,
-    description: "7 days on full pay and 7 on half pay a year, after 2 months' service (s.30). Can be logged up to 7 days late." },
+    description: "14 days a year, after 2 months' service. Can be logged up to 7 days late." },
   { code: "MATERNITY", name: "Maternity leave", daysPerYear: 90, dayCount: "calendar", gender: "female", order: 3,
-    description: "Three months on full pay (s.29)." },
+    description: "Three months on full pay." },
   { code: "PATERNITY", name: "Paternity leave", daysPerYear: 14, dayCount: "calendar", gender: "male", order: 4,
-    description: "Two weeks on full pay (s.29(8))." },
+    description: "Two weeks on full pay." },
   { code: "COMPASSIONATE", name: "Compassionate leave", daysPerYear: 5, dayCount: "working", order: 5,
-    description: "Bereavement or a serious family emergency. Company policy: the Act doesn't set this one." },
+    description: "For bereavement or a family emergency." },
   { code: "STUDY", name: "Study / exam leave", daysPerYear: 10, dayCount: "working", paid: false, minServiceMonths: 12, order: 6,
-    description: "Unpaid, for exams on an approved course. Company policy." },
+    description: "Unpaid, for exams on an approved course." },
 ];
 
 /** Gazetted each year by the Interior CS, so they're data, not code. 2027 is the expected date. */

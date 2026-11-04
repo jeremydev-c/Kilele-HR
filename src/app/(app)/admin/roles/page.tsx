@@ -16,8 +16,8 @@ export default async function RolesPage() {
   return (
     <>
       <PageHeader
-        title="Roles & permissions"
-        subtitle="A role is a named bundle of permissions. Each person's access is the sum of their roles."
+        title="Roles"
+        subtitle="What each role can do."
         actions={
           <Link href="/admin/roles/new" className="btn-primary">
             <Plus className="size-4" /> New role

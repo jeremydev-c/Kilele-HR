@@ -36,7 +36,7 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
           <p className="flex items-center gap-2 font-semibold"><CheckCircle2 className="size-4" /> Application received ({s.number})</p>
           <p className="mt-1 flex items-start gap-2">
             <Link2 className="mt-0.5 size-4 shrink-0" />
-            Bookmark this page: it&apos;s your private link to follow your application, see interview details and respond to an offer. Don&apos;t share it.
+            Bookmark this page to follow your application. It&apos;s private: please don&apos;t share it.
           </p>
         </div>
       )}

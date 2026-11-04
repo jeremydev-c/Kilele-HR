@@ -12,14 +12,14 @@ export const metadata: Metadata = { title: "My leave" };
 export default async function MyLeavePage() {
   const ctx = await requireCtx();
   if (!ctx.employee) {
-    return <PageHeader title="My leave" subtitle="Your account isn't linked to an employee record, so there's no leave to show." />;
+    return <PageHeader title="My leave" subtitle="Leave is only available to employees." />;
   }
   const data = await load(myLeave(ctx));
   const upcomingHolidays = data.holidays.filter((h) => h.date >= data.today).slice(0, 4);
 
   return (
     <>
-      <PageHeader title="My leave" subtitle={`Balances for ${data.year}. Requests go to your line manager, then HR.`} />
+      <PageHeader title="My leave" subtitle={String(data.year)} />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {data.balances.map((b) => (

@@ -7,7 +7,7 @@ import { listRequisitions, listVacancies, myInterviews } from "@/server/services
 import { Badge, Empty, PageHeader, fmtDate, fmtDateTime } from "@/components/ui";
 import { WorkflowBadge } from "@/components/workflow";
 
-export const metadata: Metadata = { title: "Recruitment" };
+export const metadata: Metadata = { title: "Hiring" };
 
 const VACANCY_TONE = { open: "green", draft: "gray", closed: "amber", filled: "blue" } as const;
 
@@ -25,8 +25,7 @@ export default async function RecruitmentPage() {
   return (
     <>
       <PageHeader
-        title="Recruitment"
-        subtitle="From an approved hiring request to a new employee, without retyping anything."
+        title="Hiring"
         actions={
           <>
             <Link href="/careers" target="_blank" className="btn-secondary"><ExternalLink className="size-4" /> Careers site</Link>
@@ -79,7 +78,7 @@ export default async function RecruitmentPage() {
                     <Link href={`/recruitment/vacancies/${v._id}`} className="font-medium text-brand-800 hover:underline">{v.title}</Link>
                     <p className="text-xs text-stone-500">{v.departmentName} · {v.total} applicant{v.total === 1 ? "" : "s"}</p>
                   </td>
-                  <td><Badge tone={VACANCY_TONE[v.status as keyof typeof VACANCY_TONE]}>{v.status}</Badge></td>
+                  <td><Badge tone={VACANCY_TONE[v.status as keyof typeof VACANCY_TONE]}>{v.status.charAt(0).toUpperCase() + v.status.slice(1)}</Badge></td>
                   {(["new", "shortlisted", "interview"] as const).map((s) => <td key={s} className="text-center">{v.byStage[s] ?? 0}</td>)}
                   <td className="text-center">{(v.byStage.offer ?? 0) + (v.byStage.accepted ?? 0)}</td>
                   <td className="text-center">{v.byStage.hired ?? 0} / {v.openings}</td>
@@ -88,7 +87,7 @@ export default async function RecruitmentPage() {
               ))}
             </tbody>
           </table>
-          {!vacancies.length && <Empty>No job adverts yet. Approved requisitions can be published as adverts.</Empty>}
+          {!vacancies.length && <Empty>No job adverts yet.</Empty>}
         </section>
       )}
 
@@ -115,7 +114,7 @@ export default async function RecruitmentPage() {
       )}
 
       {!interviews.length && !vacancies.length && !requisitions.length && !recruiter && (
-        <p className="card p-8 text-center text-sm text-stone-500">Nothing here for you yet. Interviews you&apos;re invited to will show up here.</p>
+        <p className="card p-8 text-center text-sm text-stone-500">Interviews you&apos;re invited to will appear here.</p>
       )}
     </>
   );

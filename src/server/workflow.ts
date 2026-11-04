@@ -234,7 +234,7 @@ export function decisionRight(ctx: Ctx, wf: WorkflowState): { ok: true } | { ok:
   } else {
     const perm = step.perm as Permission;
     if (!hasScope(ctx, perm, step.scope as Scope) || !can(ctx, perm, subjectOf(wf))) {
-      return { ok: false, why: `Waiting for ${step.label} (anyone holding ${step.perm}@${step.scope}).` };
+      return { ok: false, why: `Waiting for ${step.label}.` };
     }
   }
   if (wf.distinctApprovers && wf.steps.some((s, i) => i < wf.current && s.decidedById === ctx.userId)) {

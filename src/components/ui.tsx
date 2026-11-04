@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight, type LucideIcon } from "lucide-react";
 
 export function PageHeader({
   title,
@@ -13,38 +13,68 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header className="mb-6">
+    <header className="mb-7">
       {back && (
-        <Link href={back.href} className="mb-2 inline-flex items-center gap-1 text-sm text-stone-500 hover:text-stone-800">
-          <ChevronLeft className="size-4" /> {back.label}
+        <Link href={back.href} className="-ml-1 mb-3 inline-flex items-center text-[15px] text-brand-700 hover:text-brand-800">
+          <ChevronLeft className="size-5" strokeWidth={2.25} /> {back.label}
         </Link>
       )}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-stone-500">{subtitle}</p>}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <h1 className="text-[28px] leading-tight font-semibold">{title}</h1>
+          {subtitle && <p className="mt-1 text-[15px] text-stone-500">{subtitle}</p>}
         </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
     </header>
   );
 }
 
 const TONES = {
-  gray: "bg-stone-100 text-stone-700",
-  green: "bg-brand-100 text-brand-800",
-  amber: "bg-amber-100 text-amber-800",
-  red: "bg-red-100 text-red-800",
-  blue: "bg-sky-100 text-sky-800",
-  violet: "bg-violet-100 text-violet-800",
+  gray: "bg-stone-100 text-stone-600",
+  green: "bg-brand-50 text-brand-700",
+  amber: "bg-amber-50 text-amber-700",
+  red: "bg-red-50 text-red-700",
+  blue: "bg-sky-50 text-sky-700",
+  violet: "bg-violet-50 text-violet-700",
 };
 
 export function Badge({ tone = "gray", children }: { tone?: keyof typeof TONES; children: React.ReactNode }) {
-  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${TONES[tone]}`}>{children}</span>;
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap ${TONES[tone]}`}>{children}</span>;
 }
 
-export function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="px-4 py-10 text-center text-sm text-stone-500">{children}</p>;
+/** An empty list: one calm line, and the obvious next step if there is one. */
+export function Empty({ children, icon: Icon, action }: { children: React.ReactNode; icon?: LucideIcon; action?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center px-6 py-12 text-center">
+      {Icon && <Icon className="mb-3 size-8 text-stone-300" strokeWidth={1.5} />}
+      <p className="text-[15px] text-stone-500">{children}</p>
+      {action && <div className="mt-4">{action}</div>}
+    </div>
+  );
+}
+
+/** A tappable row in a grouped list, iOS Settings style. */
+export function ListRow({ href, children, trailing }: { href: string; children: React.ReactNode; trailing?: React.ReactNode }) {
+  return (
+    <Link href={href} className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-stone-50">
+      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex shrink-0 items-center gap-2">
+        {trailing}
+        <ChevronRight className="size-4 text-stone-300" />
+      </div>
+    </Link>
+  );
+}
+
+/** Section heading inside a page. */
+export function SectionTitle({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+  return (
+    <div className="mb-2 flex items-center justify-between px-1">
+      <h2 className="text-[13px] font-medium text-stone-500">{children}</h2>
+      {action}
+    </div>
+  );
 }
 
 const dateFmt = new Intl.DateTimeFormat("en-KE", { dateStyle: "medium", timeZone: "Africa/Nairobi" });

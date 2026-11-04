@@ -21,7 +21,7 @@ export default async function NewVacancyPage({ searchParams }: { searchParams: P
     <>
       <PageHeader
         title={`Advert: ${req.title}`}
-        subtitle={`${departmentName} · ${req.openings} opening${req.openings === 1 ? "" : "s"} · from ${req.number}. Title, grade and department come from the approved request.`}
+        subtitle={`${departmentName} · ${req.openings} opening${req.openings === 1 ? "" : "s"} · ${req.number}`}
         back={{ href: `/recruitment/requisitions/${reqId}`, label: req.number }}
       />
       <div className="max-w-4xl">

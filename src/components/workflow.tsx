@@ -51,9 +51,6 @@ export function WorkflowTimeline({ wf }: { wf: WorkflowState }) {
             <div className="text-sm">
               <p className="font-medium">{s.label}: <span className="font-normal">{who}</span></p>
               {s.decidedAt && <p className="text-xs text-stone-500">{fmtDateTime(s.decidedAt)}</p>}
-              {s.status === "pending" && !s.assigneeName && (
-                <p className="text-xs text-stone-500">Anyone holding <code>{s.perm}@{s.scope}</code> can decide</p>
-              )}
               {s.comment && <p className="mt-1 rounded-md bg-stone-50 px-2 py-1 text-xs text-stone-700">“{s.comment}”</p>}
             </div>
           </li>

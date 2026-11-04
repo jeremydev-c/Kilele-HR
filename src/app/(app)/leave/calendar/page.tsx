@@ -57,8 +57,7 @@ export default async function LeaveCalendarPage({ searchParams }: { searchParams
   return (
     <>
       <PageHeader
-        title="Leave calendar"
-        subtitle="Who's away, for everyone within your access. Solid = approved, faded = waiting for approval."
+        title="Who's away"
         actions={
           <div className="flex items-center gap-1">
             <Link href={`?m=${b.prev}`} className="btn-secondary px-2" aria-label="Previous month"><ChevronLeft className="size-4" /></Link>

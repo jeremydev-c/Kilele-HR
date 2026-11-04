@@ -20,6 +20,9 @@ import type { Ctx } from "../context";
 
 type Doc = { _id: Types.ObjectId; workflow: WorkflowState } & Record<string, unknown>;
 
+const dayFmt = new Intl.DateTimeFormat("en-KE", { day: "numeric", month: "short", timeZone: "UTC" });
+const day = (iso: unknown) => dayFmt.format(new Date(`${iso}T00:00:00Z`));
+
 // Each source is a different collection; the engine only touches the shared `workflow` field.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyModel = Model<any>;
@@ -45,7 +48,7 @@ const SOURCES: Source[] = [
     label: "Leave",
     model: LeaveRequest as AnyModel,
     title: (d) => `${d.employeeName}: ${String(d.typeName).toLowerCase()}`,
-    detail: (d) => `${d.number} · ${d.days} day${d.days === 1 ? "" : "s"} · ${d.start} to ${d.end}`,
+    detail: (d) => `${d.days} day${d.days === 1 ? "" : "s"} · ${day(d.start)} – ${day(d.end)}`,
     href: (d) => `/leave/${d._id}`,
   },
   {
@@ -53,7 +56,7 @@ const SOURCES: Source[] = [
     label: "Hiring",
     model: Requisition as AnyModel,
     title: (d) => `${d.hiringManagerName}: hire ${d.openings} × ${d.title}`,
-    detail: (d) => `${d.number} · grade ${d.grade} · ${d.employmentType}`,
+    detail: (d) => `Grade ${d.grade} · ${String(d.employmentType).replace(/^./, (c) => c.toUpperCase())}`,
     href: (d) => `/recruitment/requisitions/${d._id}`,
   },
   {
@@ -61,7 +64,7 @@ const SOURCES: Source[] = [
     label: "Promotion",
     model: Movement as AnyModel,
     title: (d) => `${d.employeeName}: ${d.kind} to ${(d.to as { jobTitle: string }).jobTitle}`,
-    detail: (d) => `${d.number} · ${(d.from as { grade: string }).grade} → ${(d.to as { grade: string }).grade} · from ${d.effectiveDate}`,
+    detail: (d) => `${(d.from as { grade: string }).grade} → ${(d.to as { grade: string }).grade} · from ${day(d.effectiveDate)}`,
     href: (d) => `/promotions/${d._id}`,
     onApproved: (id, ctx, now) => applyMovementIfDue(id, now, { id: ctx.userId, name: ctx.name, ip: ctx.ip }),
   },
@@ -70,7 +73,7 @@ const SOURCES: Source[] = [
     label: "Exit",
     model: Separation as AnyModel,
     title: (d) => `${d.employeeName}: ${String(d.kind).replace(/_/g, " ")}`,
-    detail: (d) => `${d.number} · last day ${d.lastDay}`,
+    detail: (d) => `Last day ${day(d.lastDay)}`,
     href: (d) => `/separations/${d._id}`,
     onApproved: (id, _ctx, now) => startClearance(id, now),
   },

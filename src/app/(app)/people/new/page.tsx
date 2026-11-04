@@ -20,7 +20,7 @@ export default async function NewEmployeePage() {
 
   return (
     <>
-      <PageHeader title="Add employee" subtitle="A staff number is assigned automatically." back={{ href: "/people", label: "People" }} />
+      <PageHeader title="Add employee" subtitle="The staff number is assigned for you." back={{ href: "/people", label: "People" }} />
       <ActionForm action={createEmployeeAction} className="card max-w-4xl space-y-8 p-6">
         <FormSection title="Employment">
           <DirectoryFields isNew departments={departments.map((d) => ({ value: d.id, label: d.name }))} managers={managers.map((m) => ({ value: m.id, label: m.label }))} />
@@ -30,7 +30,7 @@ export default async function NewEmployeePage() {
             <Input name="basicSalary" label="Basic salary (KES / month)" type="number" hint="Leave blank to use the grade's starting pay." />
           ) : (
             <p className="flex items-start gap-2 self-end text-sm text-stone-500">
-              <Lock className="mt-0.5 size-4 shrink-0" /> You can&apos;t set salaries, so the grade&apos;s starting pay is used. HR can adjust it later.
+              <Lock className="mt-0.5 size-4 shrink-0" /> Starts on the grade&apos;s starting pay.
             </p>
           )}
         </FormSection>
@@ -39,7 +39,7 @@ export default async function NewEmployeePage() {
           <ContactFields />
         </FormSection>
 
-        <FormSection title="Personal & statutory" subtitle="Encrypted before it's saved. Only people with PII access can see it, masked until they give a reason.">
+        <FormSection title="Personal & statutory" subtitle="Stored encrypted.">
           <PiiFields />
         </FormSection>
 

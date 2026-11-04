@@ -4,7 +4,8 @@ import { AlertTriangle, CheckCircle2, Circle, Lock, UserX } from "lucide-react";
 import { requireCtx } from "@/server/context";
 import { load } from "@/server/page";
 import { EXIT_REASONS, EXIT_TOPICS, KIND_LABELS, NOTICE_DAYS, getSeparation } from "@/server/services/separations";
-import { ActionForm, FieldError } from "@/components/ActionForm";
+import { ActionForm } from "@/components/ActionForm";
+import { DecisionPanel, WaitingNote } from "@/components/DecisionPanel";
 import { Badge, PageHeader, fmtDate, fmtDateTime } from "@/components/ui";
 import { WorkflowBadge, WorkflowTimeline } from "@/components/workflow";
 import { Select } from "../../people/fields";
@@ -44,6 +45,7 @@ export default async function SeparationPage({ params }: { params: Promise<{ id:
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
         <div className="space-y-6">
+          {canDecide && <DecisionPanel action={decideAction.bind(null, "separation", id)} step={s.workflow.steps[s.workflow.current].label} />}
           <section className="card p-5">
             <p className="text-sm text-stone-500">Reason</p>
             <p className="text-sm whitespace-pre-line">{s.reason}</p>
@@ -60,31 +62,15 @@ export default async function SeparationPage({ params }: { params: Promise<{ id:
             <Link href={`/people/${s.employeeId}`} className="mt-4 inline-block text-sm text-brand-700 hover:underline">Open {s.employeeName}&apos;s profile →</Link>
           </section>
 
-          {canDecide && (
-            <section className="card border-amber-300 p-5">
-              <h2 className="font-semibold">Your decision: {s.workflow.steps[s.workflow.current].label}</h2>
-              <ActionForm action={decideAction.bind(null, "separation", id)} className="mt-3 space-y-3">
-                <div>
-                  <label className="label" htmlFor="comment">Comment (needed if you reject)</label>
-                  <textarea id="comment" name="comment" rows={2} className="input" />
-                  <FieldError name="comment" />
-                </div>
-                <div className="flex gap-2">
-                  <button name="decision" value="approve" className="btn-primary">Approve</button>
-                  <button name="decision" value="reject" className="btn-danger">Reject</button>
-                </div>
-              </ActionForm>
-            </section>
-          )}
           {!canDecide && s.workflow.status === "pending" && whyNot && !own && (
-            <p className="rounded-lg bg-stone-100 px-4 py-3 text-sm text-stone-600">{whyNot}</p>
+            <WaitingNote>{whyNot}</WaitingNote>
           )}
 
           {s.clearance.length > 0 && (
             <section className="card overflow-hidden">
               <div className="border-b border-stone-200 px-4 py-3">
                 <h2 className="font-semibold">Clearance ({signed}/{s.clearance.length})</h2>
-                <p className="text-sm text-stone-500">Each department signs off its own items. When all are signed and the last day arrives, the record closes and the login is disabled.</p>
+                <p className="text-sm text-stone-500">Each department signs off its own items. Access ends automatically on the last day.</p>
               </div>
               <ul className="divide-y divide-stone-100">
                 {s.clearance.map((c) => (
@@ -113,7 +99,7 @@ export default async function SeparationPage({ params }: { params: Promise<{ id:
           {canExitInterview && (
             <section className="card p-5">
               <h2 className="font-semibold">Your exit interview</h2>
-              <p className="mb-4 text-sm text-stone-500">Only HR sees your answers, not your manager. Please be honest: it helps the people who stay.</p>
+              <p className="mb-4 text-sm text-stone-500">Only HR sees your answers, not your manager.</p>
               <ActionForm action={exitInterviewAction.bind(null, id)} className="space-y-4">
                 <Select name="reason" label="Main reason for leaving" required empty="Choose…" options={EXIT_REASONS.map((r) => ({ value: r, label: r }))} />
                 {EXIT_TOPICS.map((t, i) => (

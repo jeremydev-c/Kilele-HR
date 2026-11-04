@@ -18,8 +18,7 @@ export default async function PromotionsPage() {
   return (
     <>
       <PageHeader
-        title="Promotions & demotions"
-        subtitle="Proposed by a manager, approved by a senior manager and HR (two different people), applied on the effective date."
+        title="Promotions"
         actions={has(ctx, "promotion:initiate") && <Link href="/promotions/new" className="btn-primary"><Plus className="size-4" /> Propose</Link>}
       />
       <ul className="card divide-y divide-stone-100 overflow-hidden">

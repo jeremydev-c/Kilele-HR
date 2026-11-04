@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Inbox } from "lucide-react";
+import { CalendarDays, CheckCircle2, DoorOpen, Briefcase, TrendingUp } from "lucide-react";
 import { requireCtx } from "@/server/context";
 import { inbox } from "@/server/services/approvals";
-import { Badge, PageHeader, fmtDateTime } from "@/components/ui";
+import { Empty, ListRow, PageHeader, fmtDate } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Approvals" };
+
+const ICON = { leave: CalendarDays, requisition: Briefcase, promotion: TrendingUp, separation: DoorOpen } as const;
 
 export default async function ApprovalsPage() {
   const ctx = await requireCtx();
@@ -13,37 +14,24 @@ export default async function ApprovalsPage() {
 
   return (
     <>
-      <PageHeader
-        title="My approvals"
-        subtitle="Everything waiting for your decision, across leave, hiring, promotions and exits. Open one to see the details before you decide."
-      />
-      {items.length ? (
-        <ul className="card divide-y divide-stone-100 overflow-hidden">
-          {items.map((it) => (
-            <li key={`${it.type}-${it.id}`}>
-              <Link href={it.href} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-stone-50">
+      <PageHeader title="Approvals" subtitle={items.length ? `${items.length} waiting` : undefined} />
+      <div className="card divide-y divide-stone-100 overflow-hidden">
+        {items.map((it) => {
+          const Icon = ICON[it.type as keyof typeof ICON] ?? CalendarDays;
+          return (
+            <ListRow key={`${it.type}-${it.id}`} href={it.href} trailing={<span className="hidden text-xs text-stone-400 sm:inline">{fmtDate(it.requestedAt)}</span>}>
+              <span className="flex items-center gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-600"><Icon className="size-4" /></span>
                 <span className="min-w-0">
-                  <span className="flex items-center gap-2">
-                    <Badge tone="blue">{it.label}</Badge>
-                    <span className="font-medium">{it.title}</span>
-                  </span>
-                  <span className="mt-0.5 block text-sm text-stone-500">{it.detail}</span>
+                  <span className="block truncate font-medium">{it.title}</span>
+                  <span className="block truncate text-sm text-stone-500">{it.label} · {it.detail}</span>
                 </span>
-                <span className="text-right text-xs text-stone-500">
-                  <span className="block">Your step: <b className="text-stone-700">{it.step}</b></span>
-                  <span className="block">Submitted {fmtDateTime(it.requestedAt)}</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="card flex flex-col items-center px-6 py-16 text-center">
-          <Inbox className="size-10 text-stone-300" />
-          <p className="mt-3 font-medium">Nothing waiting for you</p>
-          <p className="text-sm text-stone-500">When someone&apos;s request reaches a step you approve, it shows up here.</p>
-        </div>
-      )}
+              </span>
+            </ListRow>
+          );
+        })}
+        {!items.length && <Empty icon={CheckCircle2}>Nothing needs your approval.</Empty>}
+      </div>
     </>
   );
 }

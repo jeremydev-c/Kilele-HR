@@ -33,10 +33,10 @@ export default async function VacancyBoardPage({ params }: { params: Promise<{ i
       <PageHeader
         title={v.title}
         subtitle={`${v.departmentName} · ${v.hired} of ${v.openings} hired · closes ${fmtDate(v.closesOn)}`}
-        back={{ href: "/recruitment", label: "Recruitment" }}
+        back={{ href: "/recruitment", label: "Hiring" }}
         actions={
           <>
-            <Badge tone={v.status === "open" ? "green" : "gray"}>{v.status}</Badge>
+            <Badge tone={v.status === "open" ? "green" : "gray"}>{v.status.charAt(0).toUpperCase() + v.status.slice(1)}</Badge>
             {v.status === "open" && (
               <Link href={`/careers/${v.slug}`} target="_blank" className="btn-secondary"><ExternalLink className="size-4" /> Public advert</Link>
             )}
@@ -49,7 +49,7 @@ export default async function VacancyBoardPage({ params }: { params: Promise<{ i
         }
       />
 
-      <p className="mb-4 text-sm text-stone-500">Sorted by screening score. ⚠ = misses a must-have from the screening questions (still yours to judge).</p>
+      <p className="mb-4 text-sm text-stone-500">Best match first.</p>
       <div className="grid gap-4 overflow-x-auto pb-2 md:grid-cols-3 xl:grid-cols-5">
         {COLUMNS.map((col) => {
           const stages: string[] = [col.key, ...("also" in col ? col.also : [])];

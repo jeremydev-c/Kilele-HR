@@ -42,7 +42,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
       <PageHeader
         title={app.candidate.name}
         subtitle={<>{app.number} · applied for <Link href={`/recruitment/vacancies/${v._id}`} className="text-brand-700 hover:underline">{v.title}</Link> on {fmtDate(app.history[0]?.at ?? app.createdAt)}</>}
-        back={{ href: full ? `/recruitment/vacancies/${v._id}` : "/recruitment", label: full ? v.title : "Recruitment" }}
+        back={{ href: full ? `/recruitment/vacancies/${v._id}` : "/recruitment", label: full ? v.title : "Hiring" }}
         actions={
           <>
             <Badge tone={STAGE_TONE[app.stage]}>{app.stage}</Badge>
@@ -63,7 +63,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
             {app.cvFileId && (
               <a href={`/api/cv/${id}`} target="_blank" className="btn-secondary mt-4"><FileText className="size-4" /> Open CV (PDF)</a>
             )}
-            <p className="mt-2 text-xs text-stone-500">Opening the CV is recorded in the audit trail.</p>
+            
           </Card>
 
           {full && questions.length > 0 && (
@@ -82,7 +82,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
                 })}
               </ul>
               {app.knockouts.length > 0 && (
-                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Misses {app.knockouts.length} must-have{app.knockouts.length === 1 ? "" : "s"}. Flagged, not auto-rejected: you decide.</p>
+                <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Misses {app.knockouts.length} must-have{app.knockouts.length === 1 ? "" : "s"}. </p>
               )}
             </Card>
           )}
@@ -162,7 +162,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
                 )}
                 {iv.hiddenCount > 0 && (
                   <p className="mt-3 flex items-center gap-2 rounded-lg bg-stone-100 px-3 py-2 text-xs text-stone-600">
-                    <EyeOff className="size-4" /> {iv.hiddenCount} colleague scorecard(s) hidden until you submit yours, so their scores can&apos;t sway yours.
+                    <EyeOff className="size-4" /> {iv.hiddenCount} other scorecard(s) hidden until you submit yours.
                   </p>
                 )}
 

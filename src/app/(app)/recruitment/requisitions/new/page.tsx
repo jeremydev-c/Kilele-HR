@@ -21,8 +21,8 @@ export default async function NewRequisitionPage() {
     <>
       <PageHeader
         title="Request a hire"
-        subtitle="Headcount needs approval from Talent & HR before a job can be advertised. You'll be the hiring manager."
-        back={{ href: "/recruitment", label: "Recruitment" }}
+        subtitle="Needs approval before it can be advertised. You'll be the hiring manager."
+        back={{ href: "/recruitment", label: "Hiring" }}
       />
       <ActionForm action={createRequisitionAction} className="card max-w-3xl space-y-5 p-6">
         <div className="grid gap-4 sm:grid-cols-2">

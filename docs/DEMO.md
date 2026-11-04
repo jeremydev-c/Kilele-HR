@@ -16,21 +16,21 @@ Short scripts for the weekly check-ins with Charles, building up to the demo day
 - "Five wrong tries locks the account for 15 minutes, and every attempt is logged."
 
 **2. Access depends on who you are (2 min)**
-- Sign in as **Mercy (Employee)**. The dashboard's *Your access* table shows only `own` and `department` scopes. The menu has only Dashboard.
+- Sign in as **Mercy (Employee)**. *Access* (bottom of the sidebar) shows only `own` and `department` scopes. The menu is short: Home, My leave, My profile, Directory.
 - Type `/admin/audit` in the address bar. You land on *No access*. "Hiding the link isn't the security; the server refused it, and that refusal is now in the audit log."
 
 **3. Roles and the permission matrix (2 min)**
-- Sign in as **Brian (Super Admin)** → *Roles & permissions* → *Line Manager*.
+- Sign in as **Brian (Super Admin)** → *Roles* → *Line Manager*.
 - Point at the matrix: rows are permissions, columns are scopes. "A role is just data. HR can make a new one without touching code." Show the custom *Payroll Officer* role as proof.
 - Open *Super Admin*: it's locked. "There's always someone who can fix access, and the last Super Admin can't be removed."
 
 **4. No privilege escalation (2 min)**
-- Sign in as **Grace (HR Manager)** → *Users* → *Brian Otieno*. The manage buttons are gone and a note explains why.
+- Sign in as **Grace (HR Manager)** → *Users* → *Brian Otieno*. The manage buttons are gone: "This account has more access than yours."
 - "Grace can manage accounts, but only ones whose access she could have granted herself. So HR can't lock out IT, and nobody can sneak themselves extra rights through someone else." Also: nobody can change their own roles.
 - In *Users* → *New account*, roles she doesn't fully hold (Super Admin) are greyed out.
 
 **5. Tamper-evident audit trail (2 min)**
-- As Grace → *Audit trail* → **Verify chain** → green: "Chain intact".
+- As Grace → *Audit log* → **Verify chain** → green: "Chain intact".
 - In a terminal, play the attacker covering their tracks:
   ```bash
   mongosh "mongodb://127.0.0.1:27027/kilele_hr?replicaSet=kilele" --eval 'db.auditlogs.updateOne({seq:2},{$set:{summary:"Signed in"}})'
@@ -58,11 +58,11 @@ Short scripts for the weekly check-ins with Charles, building up to the demo day
 
 **1. Same record, different eyes (4 min).** Open **Mercy Njeri**'s profile as each of these:
 - **Grace (HR Manager):** everything. Personal & statutory details are *masked* (`••••723`) even for her.
-- **David (Line Manager, Mercy's boss's boss):** employment and contact details, but *Personal & statutory* and *Pay* show a padlock. "That's not CSS hiding it. The server never sent it." Open DevTools → Network → the page response to prove there's no salary in it. His career-history view shows the promotion but not the salary.
+- **David (Line Manager, Mercy's boss's boss):** employment and contact details, but *Personal & statutory* and *Pay* show *Restricted*. "That's not CSS hiding it. The server never sent it." Open DevTools → Network → the page response to prove there's no salary in it. His career-history view shows the promotion but not the salary.
 - **Mercy herself:** her whole record, with *Show my details* (no reason needed for your own).
 - **Peter (Auditor):** directory details only, never PII or pay.
 
-**2. Reveal with a reason (2 min).** As Grace on Mercy's profile → *Reveal full details*. Try "abc": refused (too short). Type "Checking KRA PIN for the November PAYE return" → values appear and hide again after 60 seconds. Then *Audit trail*: the entry shows Grace's name, the time and her exact reason. "Kenya's Data Protection Act asks you to justify access. This is that, built in."
+**2. Reveal with a reason (2 min).** As Grace on Mercy's profile → *Reveal full details* → enter a reason. Try "abc": refused (too short). Type "Checking KRA PIN for the November PAYE return" → values appear and hide again after 60 seconds. Then *Audit log*: the entry shows Grace's name, the time and her exact reason. "Kenya's Data Protection Act asks you to justify access. This is that, built in."
 
 **3. Encrypted at rest (1 min).** In a terminal:
 ```bash
@@ -96,17 +96,17 @@ Only `enc:v1:…` ciphertext. "If someone steals the database, they get gibberis
 
 **2. Routing (2 min).** Sign in as **David** → dashboard says *1 waiting for your approval* → open **Brian's** request.
 - *Before you decide*: balance after this, and whether anyone else in Engineering is away then.
-- Click **Reject** with no comment: refused ("the employee will see this").
+- Click **Decline** with no note: refused (the employee must be told why).
 - Approve with a comment → it moves to **HR**. David's *Waiting for HR* note: he holds `leave:approve@team`, the HR step needs `@all`. "Same permission, different scope, different job."
 
-**3. HR and the trail (2 min).** Sign in as **Grace** → *Approvals* shows Brian (HR step) and Daniel (already approved by Esther). Approve Brian. The trail shows submitted → David → Grace, with times and comments. *Audit trail* → filter *Leave*.
+**3. HR and the trail (2 min).** Sign in as **Grace** → *Approvals* shows Brian (HR step) and Daniel (already approved by Esther). Approve Brian. The trail shows submitted → David → Grace, with times and comments. *Audit log* → filter *Leave*.
 
 **4. The rules people try to break (2 min).**
 - Grace's own December leave is in the **CEO's** inbox, never her own: nobody approves their own request, not even a Super Admin.
 - Kevin reports to Grace and Grace is HR: one click covers both steps, and the trail says so.
 - Two HR people clicking *Approve* on the same request at the same moment: only one wins (`npm run test:db` proves it).
 
-**5. Calendar and settings (1 min).** *Leave calendar*, December: who's away, weekends and holidays left blank. *Leave settings*: change annual leave to 22 and every balance updates at once ("balances are worked out fresh, never stored"). Add a gazetted holiday and the working-day counts include it.
+**5. Calendar and settings (1 min).** *Who's away*, December: who's away, weekends and holidays left blank. *Leave policy*: change annual leave to 22 and every balance updates at once ("balances are worked out fresh, never stored"). Add a gazetted holiday and the working-day counts include it.
 
 **Questions Charles might ask**
 
@@ -130,9 +130,9 @@ Before you start: `npm run seed`, then open `.demo-links.txt` (each candidate's 
 
 **2. The public side (2 min).** Open http://localhost:3000/careers in a fresh window (no login). Open *Sales Executive* and apply with a test PDF. You land on your **private status page**. "The link is the key; we store only a hash of it. Candidates always know where they stand." Then mention the defences: rate limit, honeypot field, PDF checked by its bytes, one application per email, and a consent statement with a retention period (Data Protection Act).
 
-**3. Screening (2 min).** As Grace → *Recruitment* → *Senior Frontend Engineer*. Columns by stage, sorted by score. Point at **Fatuma** (score 83 but ⚠: "Allowed to work in Kenya? No") and **Otieno** (⚠: under 2 years). "Flagged, not auto-rejected. The machine sorts, a person decides." Open Fatuma: answers, CV (*Open CV* opens a real PDF; that view is audited).
+**3. Screening (2 min).** As Grace → *Hiring* → *Senior Frontend Engineer*. Columns by stage, sorted by score. Point at **Fatuma** (score 83 but ⚠: "Allowed to work in Kenya? No") and **Otieno** (⚠: under 2 years). "Flagged, not auto-rejected. The machine sorts, a person decides." Open Fatuma: answers, CV (*Open CV* opens a real PDF; that view is audited).
 
-**4. Blind scorecards (2 min).** Sign in as **David** → *Recruitment* → *My interviews* → **Kipchirchir**. "1 colleague scorecard hidden until you submit yours." Submit a scorecard → now he sees Collins' scores and the averages. "If the boss speaks first, everyone agrees with the boss. This stops that." Try to submit again: refused, scorecards are final.
+**4. Blind scorecards (2 min).** Sign in as **David** → *Hiring* → *My interviews* → **Kipchirchir**. "1 other scorecard hidden until you submit yours." Submit a scorecard → now he sees Collins' scores and the averages. "If the boss speaks first, everyone agrees with the boss. This stops that." Try to submit again: refused, scorecards are final.
 
 **5. Offer → accept → hire (2 min).**
 - Open Achieng's status link from `.demo-links.txt`: *Offer accepted*, KES 165,000, starts 1 Dec. No scores or interviewer names on the candidate's side.
@@ -155,7 +155,7 @@ Before you start: `npm run seed`, then open `.demo-links.txt` (each candidate's 
 
 **1. Promotion (3 min).** As **David** → *Approvals*: one inbox holding a promotion *and* a leave request. Open **Mercy's promotion**, proposed by Collins. "It skipped Collins, who proposed it, and came to me, his manager." David sees no salaries: "line managers can't see pay, so they can't set it. Pay moves into the new band automatically." Approve. As **Grace**: she sees KES 145,000 → 170,000 (the G5 minimum). Approve → *Applied*. Open Mercy's profile: G5, Senior Software Engineer, new line in her career history. Also show **Victor** in *Promotions*: approved but *Scheduled* for a date next month. "The scheduled job applies it on the day."
 
-**2. Exit (4 min).** As **Brian** → *Exits*: "Clearance for your department to sign" and *Retiring in the next 12 months* (John Maina, with *Start retirement*). Open **Patrick**: approved resignation, 6/7 cleared, "27 annual leave days unused: to be paid in the final dues". Point out that each department signs only its own items (Joseph can't sign IT's). Sign *Email and system access switched off* → "record closed, login disabled". Then sign in as `patrick.mwenda@kilele.co.ke` → "This account has been disabled."
+**2. Exit (4 min).** As **Brian** → *Exits*: "Waiting for your department" and *Retiring in the next year* (John Maina, with *Start retirement*). Open **Patrick**: approved resignation, 6/7 cleared, "27 annual leave days unused: to be paid in the final dues". Point out that each department signs only its own items (Joseph can't sign IT's). Sign *Email and system access switched off* → "record closed, login disabled". Then sign in as `patrick.mwenda@kilele.co.ke` → "This account has been disabled."
 
 **3. Exit interview privacy (1 min).** Grace sees Patrick's exit interview answers ("pay for logistics officers is behind the market"). Joseph, his manager, sees only that it was submitted. "If the manager could read it, nobody would be honest about the manager."
 
@@ -179,11 +179,11 @@ Before you start: `npm run seed`, then open `.demo-links.txt` (each candidate's 
 
 ### 1. Trust first: same record, different eyes (2 min)
 - **A, as Grace (HR Manager)** → Mercy's profile: everything, but ID and KRA PIN are masked. *Reveal* → asks why → type "Checking KRA PIN for PAYE" → values show for 60 s.
-- **B, as David (Line Manager)** → same profile: padlocks on PII and pay. "Not hidden by CSS: the server never sent it."
+- **B, as David (Line Manager)** → same profile: *Restricted* on PII and pay. "Not hidden by CSS: the server never sent it."
 
 ### 2. Hire (3 min)
 - **B** → http://localhost:3000/careers → *Sales Executive* → apply with the PDF → the private status page. "A long random link is the candidate's key; we store only its hash."
-- **A, Grace** → *Recruitment* → *Senior Frontend Engineer*: candidates sorted by score, knock-outs flagged ⚠ "but a human decides". Open Achieng: two interviewers' scorecards, averages. "Interviewers can't see each other's scores until they've scored, so the boss's opinion can't anchor everyone."
+- **A, Grace** → *Hiring* → *Senior Frontend Engineer*: candidates sorted by score, knock-outs flagged ⚠ "but a human decides". Open Achieng: two interviewers' scorecards, averages. "Interviewers can't see each other's scores until they've scored, so the boss's opinion can't anchor everyone."
 - Achieng has accepted (show her status link in **B**). **A** → *Hire*: only first-day details (ID, KRA PIN, date of birth) → lands on her **employee profile**: G4, KES 165,000 from the offer, reports to David, history says "hired through APP-…". "Nobody retyped anything."
 
 ### 3. Work: leave (1.5 min)
@@ -198,7 +198,7 @@ Before you start: `npm run seed`, then open `.demo-links.txt` (each candidate's 
 - **B** → sign in as Patrick → "This account has been disabled." "On the last day, offboarding happens by itself once every department has cleared."
 
 ### 6. Prove it (1 min)
-- **A** → *Audit trail* → filter *Employees*: Grace's reveal *with her reason*, the hire, the promotion, the exit. **Verify chain** → green.
+- **A** → *Audit log* → filter *Employees*: Grace's reveal *with her reason*, the hire, the promotion, the exit. **Verify chain** → green.
 - *(If time allows: change one entry in `mongosh`, verify again → red, pointing at the exact entry.)*
 
 ### 7. Close (30 s)

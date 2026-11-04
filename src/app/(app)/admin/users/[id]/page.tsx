@@ -60,7 +60,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
 
             {outranksMe && has(ctx, "user:manage") && (
               <p className="mt-5 border-t border-stone-100 pt-4 text-sm text-stone-500">
-                This account has more access than you do, so only someone with at least the same access can change it.
+                This account has more access than yours, so you can&apos;t change it.
               </p>
             )}
             {canManage && !isSelf && (
@@ -93,14 +93,14 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
             <section className="card p-5">
               <h2 className="font-semibold">Roles</h2>
               {isSelf ? (
-                <p className="mt-2 text-sm text-stone-500">You can&apos;t change your own roles. Another administrator has to.</p>
+                <p className="mt-2 text-sm text-stone-500">Someone else has to change your roles.</p>
               ) : (
                 <ActionForm action={setRolesAction.bind(null, user.id)} className="mt-3 space-y-2">
                   {roles.map((r) => (
                     <label
                       key={r.id}
                       className={`flex gap-3 rounded-lg border p-3 text-sm ${r.assignable ? "border-stone-200 hover:bg-stone-50" : "border-stone-100 opacity-50"}`}
-                      title={r.assignable ? undefined : "This role has permissions you don't hold."}
+                      title={r.assignable ? undefined : "You can't give out a role with more access than your own."}
                     >
                       <input
                         type="checkbox"
@@ -129,7 +129,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           <section className="card overflow-hidden">
             <div className="border-b border-stone-200 px-4 py-3">
               <h2 className="font-semibold">Effective access</h2>
-              <p className="text-sm text-stone-500">Everything this account can do, and which role gives it.</p>
+              
             </div>
             <AccessTable
               sources={[

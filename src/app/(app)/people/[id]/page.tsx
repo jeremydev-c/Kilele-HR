@@ -40,11 +40,9 @@ function Section({ title, children, edit }: { title: string; children: React.Rea
   return (
     <section className="card p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="font-semibold">{title}</h2>
+        <h2 className="text-[17px] font-semibold">{title}</h2>
         {edit && (
-          <Link href={edit} className="inline-flex items-center gap-1 text-sm text-brand-700 hover:underline">
-            <Pencil className="size-3.5" /> Edit
-          </Link>
+          <Link href={edit} className="text-sm text-brand-700 hover:underline">Edit</Link>
         )}
       </div>
       {children}
@@ -52,11 +50,12 @@ function Section({ title, children, edit }: { title: string; children: React.Rea
   );
 }
 
-function Locked({ title, what }: { title: string; what: string }) {
+// Restricted sections are never sent to the browser; this is all that's shown in their place.
+function Locked({ title }: { title: string; what?: string }) {
   return (
-    <section className="card border-dashed p-5 text-sm text-stone-500">
-      <h2 className="mb-1 flex items-center gap-2 font-semibold text-stone-700"><Lock className="size-4" /> {title}</h2>
-      Your access doesn&apos;t include {what} for this person, so it wasn&apos;t sent to your browser at all.
+    <section className="flex items-center justify-between rounded-2xl border border-dashed border-stone-300 px-5 py-4 text-sm">
+      <span className="font-medium text-stone-600">{title}</span>
+      <span className="flex items-center gap-1.5 text-stone-400"><Lock className="size-3.5" /> Restricted</span>
     </section>
   );
 }
@@ -64,8 +63,8 @@ function Locked({ title, what }: { title: string; what: string }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-stone-500">{label}</dt>
-      <dd>{children || <span className="text-stone-400">—</span>}</dd>
+      <dt className="text-[13px] text-stone-500">{label}</dt>
+      <dd className="mt-0.5">{children || <span className="text-stone-400">—</span>}</dd>
     </div>
   );
 }

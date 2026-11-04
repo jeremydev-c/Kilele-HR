@@ -32,7 +32,7 @@ export function NewUserForm({ employees, roles }: { employees: Employee[]; roles
           {employees.map((e) => <option key={e.id} value={e.id}>{e.label}</option>)}
         </select>
         <p className="mt-1 text-xs text-stone-500">
-          Linking the account to an employee is what makes “own”, “team” and “department” permissions work.
+          Link to an employee so team and department access works.
         </p>
       </div>
 
@@ -56,7 +56,7 @@ export function NewUserForm({ employees, roles }: { employees: Employee[]; roles
             <label
               key={r.id}
               className={`flex gap-3 rounded-lg border p-3 text-sm ${r.assignable ? "border-stone-200 hover:bg-stone-50" : "border-stone-100 opacity-50"}`}
-              title={r.assignable ? undefined : "This role has permissions you don't hold, so you can't give it out."}
+              title={r.assignable ? undefined : "You can't give out a role with more access than your own."}
             >
               <input type="checkbox" name="roleIds" value={r.id} disabled={!r.assignable} className="mt-0.5 accent-brand-600" />
               <span>

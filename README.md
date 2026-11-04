@@ -36,7 +36,7 @@ npm run dev     # 3. http://localhost:3000
 
 `npm run db` starts a real MongoDB replica set (so transactions work) and keeps its data in `~/.kilele-hr/mongo-data`, outside OneDrive. The first run downloads the MongoDB binary; after that it works offline. To use Atlas instead, put your Atlas string in `MONGODB_URI` and run `npm run seed -- --force`.
 
-With `DEMO_MODE=true`, the login page lists one demo account per role. Tap one to fill the form. They all use `DEMO_PASSWORD`.
+With `DEMO_MODE=true`, the login page lists one demo account per role. Tap one to sign in. They all use `DEMO_PASSWORD`.
 
 | Role | Account | What to show with it |
 |---|---|---|
