@@ -1,0 +1,37 @@
+{
+  "name": "kilele-hr",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ERP-style HR management system (iLabAfrica coding challenge)",
+  "scripts": {
+    "db": "tsx --env-file-if-exists=.env.local scripts/local-db.ts",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "seed": "tsx --env-file=.env.local scripts/seed.ts"
+  },
+  "dependencies": {
+    "jose": "^6.2.12",
+    "lucide-react": "^1.59.0",
+    "mongoose": "^9.11.2",
+    "next": "16.4.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.2",
+    "mongodb-memory-server": "^10.1.4",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  }
+}

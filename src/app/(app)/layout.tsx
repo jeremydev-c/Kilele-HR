@@ -1,0 +1,38 @@
+import { redirect } from "next/navigation";
+import { requireCtx } from "@/server/context";
+import { has } from "@/server/authz";
+import { Sidebar, type NavSection } from "@/components/Sidebar";
+import { logoutAction } from "../actions";
+
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const ctx = await requireCtx();
+  if (ctx.mustChangePassword) redirect("/change-password");
+
+  // The menu only shows what this person can use. (The pages and actions
+  // check again on the server: hiding a link is not security.)
+  type Item = NavSection["items"][number];
+  const only = (allowed: boolean, item: Item) => (allowed ? [item] : []);
+  const all: NavSection[] = [
+    { title: "", items: [{ href: "/dashboard", label: "Dashboard", icon: "dashboard" }] },
+    {
+      title: "Administration",
+      items: [
+        ...only(has(ctx, "user:read"), { href: "/admin/users", label: "Users", icon: "users" }),
+        ...only(has(ctx, "role:manage"), { href: "/admin/roles", label: "Roles & permissions", icon: "shield" }),
+        ...only(has(ctx, "audit:read"), { href: "/admin/audit", label: "Audit trail", icon: "audit" }),
+      ],
+    },
+  ];
+  const sections = all.filter((s) => s.items.length > 0);
+
+  return (
+    <div className="lg:grid lg:min-h-screen lg:grid-cols-[16rem_1fr]">
+      <Sidebar
+        sections={sections}
+        user={{ name: ctx.name, email: ctx.email, roles: ctx.roleNames }}
+        logout={logoutAction}
+      />
+      <main className="min-w-0 px-4 py-6 sm:px-8 lg:py-8">{children}</main>
+    </div>
+  );
+}
