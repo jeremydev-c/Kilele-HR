@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExternalLink, Plus } from "lucide-react";
+import { ExternalLink, Lightbulb, Plus } from "lucide-react";
 import { requireCtx } from "@/server/context";
 import { has } from "@/server/authz";
-import { listRequisitions, listVacancies, myInterviews } from "@/server/services/recruitment";
+import { hiringSuggestions, listRequisitions, listVacancies, myInterviews } from "@/server/services/recruitment";
 import { Badge, Empty, PageHeader, fmtDate, fmtDateTime } from "@/components/ui";
 import { WorkflowBadge } from "@/components/workflow";
 
@@ -15,10 +15,11 @@ export default async function RecruitmentPage() {
   const ctx = await requireCtx();
   const recruiter = has(ctx, "recruitment:manage") || has(ctx, "application:review");
   const canRequest = has(ctx, "requisition:create") && !!ctx.employee;
-  const [interviews, vacancies, requisitions] = await Promise.all([
+  const [interviews, vacancies, requisitions, toHire] = await Promise.all([
     myInterviews(ctx),
     listVacancies(ctx).catch(() => []),
     canRequest || recruiter ? listRequisitions(ctx) : Promise.resolve([]),
+    hiringSuggestions(ctx),
   ]);
   const todo = interviews.filter((i) => i.needsScorecard);
 
@@ -33,6 +34,16 @@ export default async function RecruitmentPage() {
           </>
         }
       />
+
+      {toHire.length > 0 && (
+        <Link href="/recruitment/requisitions/new" className="card mb-6 flex items-center gap-3 p-4 hover:border-amber-300">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600"><Lightbulb className="size-4" /></span>
+          <span className="flex-1">
+            <span className="block font-medium">{toHire.length === 1 ? `Plan a replacement for ${toHire[0].name}` : `${toHire.length} replacements to plan`}</span>
+            <span className="block text-sm text-stone-500">{toHire.map((t) => `${t.name} (${t.jobTitle})`).join(", ")}</span>
+          </span>
+        </Link>
+      )}
 
       {interviews.length > 0 && (
         <section className="card mb-6 overflow-hidden">

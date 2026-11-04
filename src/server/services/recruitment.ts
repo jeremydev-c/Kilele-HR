@@ -12,7 +12,8 @@ import { nextNumber } from "../models/Counter";
 import {
   Application, Requisition, Vacancy, type ApplicationDoc, type RequisitionRecord, type Stage, type VacancyRecord,
 } from "../models/Recruitment";
-import { authorize, can, has } from "../authz";
+import { Separation } from "../models/Separation";
+import { authorize, can, has, scopeFilter } from "../authz";
 import { record, type Actor } from "../audit";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import { decisionRight, startWorkflow, type WorkflowDef } from "../workflow";
@@ -59,6 +60,7 @@ const RequisitionInput = z.object({
   employmentType: z.enum(["permanent", "contract", "intern"]),
   openings: z.coerce.number().int().min(1).max(20),
   justification: z.string().trim().min(20, "Explain why this hire is needed (at least 20 characters)."),
+  replacesEmployeeId: z.preprocess((v) => (v === "" ? undefined : v), objectId.optional()),
 });
 
 export async function createRequisition(ctx: Ctx, input: unknown, now = new Date()) {
@@ -70,18 +72,27 @@ export async function createRequisition(ctx: Ctx, input: unknown, now = new Date
   if (data.departmentId !== ctx.employee.departmentId && !has(ctx, "recruitment:manage")) {
     throw new ForbiddenError("You can only request hires for your own department.");
   }
-  const [me, dept] = await Promise.all([
+  const [me, dept, replaces] = await Promise.all([
     Employee.findById(ctx.employee.id).lean<Stored>(),
     Department.findById(data.departmentId).lean(),
+    data.replacesEmployeeId ? Employee.findById(data.replacesEmployeeId).lean<Stored>() : null,
   ]);
   if (!me || !dept) throw new AppError("Pick a department.");
+  if (data.replacesEmployeeId && (!replaces || String(replaces.departmentId) !== data.departmentId || !can(ctx, "employee:read", replaces))) {
+    throw new AppError("A replacement must be for someone in the same department that you can see.");
+  }
 
   const year = now.getUTCFullYear();
   const id = await withTransaction(async (session) => {
     const number = `REQ-${year}-${String(await nextNumber(`req-${year}`, session)).padStart(4, "0")}`;
     const workflow = await startWorkflow(REQUISITION_WORKFLOW, me, ctx, now);
     const [doc] = await Requisition.create(
-      [{ ...data, number, hiringManagerId: me._id, hiringManagerName: `${me.firstName} ${me.lastName}`, workflow }],
+      [{
+        ...data,
+        replacesEmployeeId: replaces?._id ?? null,
+        replacesName: replaces ? `${replaces.firstName} ${replaces.lastName}` : null,
+        number, hiringManagerId: me._id, hiringManagerName: `${me.firstName} ${me.lastName}`, workflow,
+      }],
       { session },
     );
     return doc;
@@ -90,10 +101,82 @@ export async function createRequisition(ctx: Ctx, input: unknown, now = new Date
     action: "recruitment.requisition.create",
     entity: "requisition",
     entityId: String(id._id),
-    summary: `Requested ${data.openings} × ${data.title} for ${dept.name} (${id.number})`,
+    summary: `Requested ${data.openings} × ${data.title} for ${dept.name} (${id.number})${replaces ? `, replacing ${replaces.firstName} ${replaces.lastName}` : ""}`,
     reason: data.justification,
   });
   return String(id._id);
+}
+
+// ---------------------------------------------------------------------------
+// Hiring suggestions: simple, explainable rules (no guessing)
+// ---------------------------------------------------------------------------
+
+export type HiringSuggestion = {
+  employeeId: string;
+  name: string;
+  jobTitle: string;
+  grade: string;
+  departmentId: string;
+  departmentName: string;
+  why: string;
+  when: string; // ISO date they leave or retire
+};
+
+/**
+ * People whose job may need filling, for this person's area:
+ *   1. someone with an exit in progress (or who left in the last 60 days)
+ *   2. someone reaching 60 within 6 months (only if you may see retirement dates: they reveal age)
+ * Anyone who already has a replacement request (pending or approved) is skipped.
+ */
+export async function hiringSuggestions(ctx: Ctx, now = new Date()): Promise<HiringSuggestion[]> {
+  if (!has(ctx, "requisition:create") || !ctx.employee) return [];
+  await connectDB();
+  const deptFilter = has(ctx, "recruitment:manage") ? {} : { departmentId: new Types.ObjectId(ctx.employee.departmentId) };
+  const since = new Date(now.getTime() - 60 * 86_400_000);
+  const soon = new Date(now.getTime() + 183 * 86_400_000);
+
+  const [exits, covered, depts] = await Promise.all([
+    Separation.find({
+      ...deptFilter,
+      "workflow.status": { $in: ["pending", "approved"] },
+      $or: [{ completedAt: null }, { completedAt: { $gte: since } }],
+    }).lean(),
+    Requisition.find({ replacesEmployeeId: { $ne: null }, "workflow.status": { $in: ["pending", "approved"] } }).select("replacesEmployeeId").lean(),
+    Department.find().select("name").lean(),
+  ]);
+  const done = new Set(covered.map((r) => String(r.replacesEmployeeId)));
+  const deptName = new Map(depts.map((d) => [String(d._id), d.name]));
+  const out: HiringSuggestion[] = [];
+  const seen = new Set<string>();
+
+  const people = await Employee.find({ _id: { $in: exits.map((x) => x.employeeId) } }).lean<Stored[]>();
+  for (const x of exits) {
+    const e = people.find((p) => String(p._id) === String(x.employeeId));
+    if (!e || done.has(String(e._id)) || seen.has(String(e._id))) continue;
+    seen.add(String(e._id));
+    out.push({
+      employeeId: String(e._id), name: `${e.firstName} ${e.lastName}`, jobTitle: e.jobTitle, grade: e.grade,
+      departmentId: String(e.departmentId), departmentName: deptName.get(String(e.departmentId)) ?? "",
+      why: x.kind === "retirement" ? "Retiring" : x.kind === "resignation" ? "Resigned" : "Leaving",
+      when: x.lastDay,
+    });
+  }
+
+  const pii = scopeFilter(ctx, "employee.pii:read");
+  if (pii) {
+    const retiring = await Employee.find({
+      $and: [pii, deptFilter, { status: { $ne: "separated" }, retirementDate: { $gte: now, $lte: soon } }],
+    }).lean<Stored[]>();
+    for (const e of retiring) {
+      if (done.has(String(e._id)) || seen.has(String(e._id))) continue;
+      out.push({
+        employeeId: String(e._id), name: `${e.firstName} ${e.lastName}`, jobTitle: e.jobTitle, grade: e.grade,
+        departmentId: String(e.departmentId), departmentName: deptName.get(String(e.departmentId)) ?? "",
+        why: "Turns 60", when: toISODate(e.retirementDate!),
+      });
+    }
+  }
+  return out.sort((a, b) => a.when.localeCompare(b.when));
 }
 
 export async function listRequisitions(ctx: Ctx) {

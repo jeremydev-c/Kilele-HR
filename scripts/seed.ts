@@ -475,6 +475,7 @@ async function main() {
   // 2. Accounts Assistant: waiting for Talent & HR approval (shows in Faith's and Grace's inboxes)
   await createRequisition(await ctxOf("esther"), {
     title: "Accounts Assistant", departmentId: String(deptId("FIN")), grade: "G2", employmentType: "permanent", openings: 1,
+    replacesEmployeeId: String(ids.get("francis")),
     justification: "Francis Njoroge retires in February 2027. We need overlap to hand over accounts payable before he leaves.",
   }, on("2026-11-02"));
 

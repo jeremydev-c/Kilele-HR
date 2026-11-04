@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
-  CalendarPlus, CheckCircle2, ClipboardCheck, Inbox, MessageSquareText, Plane, Plus, ShieldAlert, ScrollText, UserPlus,
+  CalendarPlus, CheckCircle2, ClipboardCheck, Inbox, Lightbulb, MessageSquareText, Plane, Plus, ShieldAlert, ScrollText, UserPlus,
 } from "lucide-react";
 import { Employee } from "@/server/models/Employee";
 import { AuditLog } from "@/server/models/AuditLog";
@@ -9,7 +9,7 @@ import { LeaveRequest } from "@/server/models/Leave";
 import { inboxCount } from "@/server/services/approvals";
 import { balancesFor, offToday } from "@/server/services/leave";
 import { hrOverview } from "@/server/services/dashboard";
-import { myInterviews } from "@/server/services/recruitment";
+import { hiringSuggestions, myInterviews } from "@/server/services/recruitment";
 import { listSeparations } from "@/server/services/separations";
 import { requireCtx } from "@/server/context";
 import { has } from "@/server/authz";
@@ -33,7 +33,7 @@ export default async function HomePage() {
   const { greeting, date } = today();
   const me = ctx.employee && has(ctx, "leave:apply") ? await Employee.findById(ctx.employee.id).lean() : null;
 
-  const [waiting, interviews, exits, myPending, away, org, balances, recent] = await Promise.all([
+  const [waiting, interviews, exits, myPending, away, org, balances, recent, toHire] = await Promise.all([
     inboxCount(ctx),
     myInterviews(ctx),
     listSeparations(ctx),
@@ -42,6 +42,7 @@ export default async function HomePage() {
     hrOverview(ctx),
     me ? balancesFor(me, new Date().getUTCFullYear()) : null,
     has(ctx, "audit:read") ? AuditLog.find().sort({ seq: -1 }).limit(5).lean() : null,
+    hiringSuggestions(ctx),
   ]);
   const scorecards = interviews.filter((i) => i.needsScorecard).length;
   const annual = balances?.find((b) => b.code === "ANNUAL");
@@ -52,6 +53,7 @@ export default async function HomePage() {
     scorecards > 0 && { href: "/recruitment", icon: MessageSquareText, text: `${scorecards} interview scorecard${scorecards === 1 ? "" : "s"} to submit` },
     exits.clearanceTasks.length > 0 && { href: "/separations", icon: ClipboardCheck, text: `${exits.clearanceTasks.length} exit clearance item${exits.clearanceTasks.length === 1 ? "" : "s"} to sign` },
     myPending > 0 && { href: "/leave", icon: CalendarPlus, text: myPending === 1 ? "Your leave request is awaiting approval" : `${myPending} of your leave requests are awaiting approval` },
+    toHire.length > 0 && { href: "/recruitment/requisitions/new", icon: Lightbulb, text: toHire.length === 1 ? `Plan a replacement for ${toHire[0].name}` : `${toHire.length} replacements to plan` },
   ].filter(Boolean) as { href: string; icon: typeof Inbox; text: string }[];
 
   const quick = [

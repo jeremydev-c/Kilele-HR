@@ -21,6 +21,9 @@ const RequisitionSchema = new Schema(
     justification: { type: String, required: true },
     hiringManagerId: { type: Schema.Types.ObjectId, ref: "Employee", required: true },
     hiringManagerName: { type: String, required: true },
+    /** Set when this hire replaces someone who is leaving (so we stop suggesting it). */
+    replacesEmployeeId: { type: Schema.Types.ObjectId, ref: "Employee", default: null },
+    replacesName: { type: String, default: null },
     vacancyId: { type: Schema.Types.ObjectId, ref: "Vacancy", default: null },
     workflow: { type: WorkflowSchema, required: true },
   },

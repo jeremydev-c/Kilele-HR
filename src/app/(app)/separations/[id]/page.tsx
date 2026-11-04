@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Circle, Lock, UserX } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, Lock, UserPlus, UserX } from "lucide-react";
 import { requireCtx } from "@/server/context";
 import { load } from "@/server/page";
 import { EXIT_REASONS, EXIT_TOPICS, KIND_LABELS, NOTICE_DAYS, getSeparation } from "@/server/services/separations";
+import { hiringSuggestions } from "@/server/services/recruitment";
 import { ActionForm } from "@/components/ActionForm";
 import { DecisionPanel, WaitingNote } from "@/components/DecisionPanel";
 import { Badge, PageHeader, fmtDate, fmtDateTime } from "@/components/ui";
@@ -25,6 +26,7 @@ export default async function SeparationPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const ctx = await requireCtx();
   const { sep: s, own, hr, canDecide, whyNot, canWithdraw, signable, canExitInterview, shortNotice, leaveOwed, status } = await load(getSeparation(ctx, id));
+  const replaceable = !own && (await hiringSuggestions(ctx)).some((t) => t.employeeId === String(s.employeeId));
   const signed = s.clearance.filter((c) => c.signedAt).length;
   const ei = s.exitInterview as null | { reason?: string; ratings?: { topic: string; score: number }[]; wouldRecommend?: boolean; comments?: string; submittedAt?: Date };
 
@@ -59,7 +61,14 @@ export default async function SeparationPage({ params }: { params: Promise<{ id:
                 <span className="rounded-md bg-sky-50 px-2 py-1 text-sky-800">{leaveOwed} annual leave days unused: to be taken or paid in the final dues</span>
               )}
             </div>
-            <Link href={`/people/${s.employeeId}`} className="mt-4 inline-block text-sm text-brand-700 hover:underline">Open {s.employeeName}&apos;s profile →</Link>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {replaceable && (
+                <Link href={`/recruitment/requisitions/new?replaces=${s.employeeId}`} className="btn-secondary">
+                  <UserPlus className="size-4 text-brand-700" /> Request a replacement
+                </Link>
+              )}
+              <Link href={`/people/${s.employeeId}`} className="text-sm text-brand-700 hover:underline">Open {s.employeeName}&apos;s profile</Link>
+            </div>
           </section>
 
           {!canDecide && s.workflow.status === "pending" && whyNot && !own && (
