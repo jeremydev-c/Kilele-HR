@@ -13,7 +13,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   type Item = NavSection["items"][number];
   const only = (allowed: boolean, item: Item) => (allowed ? [item] : []);
   const all: NavSection[] = [
-    { title: "", items: [{ href: "/dashboard", label: "Dashboard", icon: "dashboard" }] },
+    {
+      title: "",
+      items: [
+        { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+        ...only(!!ctx.employee, { href: `/people/${ctx.employee?.id}`, label: "My profile", icon: "person" }),
+      ],
+    },
+    {
+      title: "People",
+      items: [
+        ...only(has(ctx, "employee:read"), { href: "/people", label: "Directory", icon: "people" }),
+        ...only(has(ctx, "employee:read"), { href: "/org-chart", label: "Org chart", icon: "org" }),
+      ],
+    },
     {
       title: "Administration",
       items: [

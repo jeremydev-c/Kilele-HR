@@ -12,8 +12,8 @@ An ERP-style HR management system: access control, employee records, recruitment
 | Milestone | Status |
 |---|---|
 | M0 Foundation: login, roles, scoped permissions, users, hash-chained audit trail | ✅ Done (4 Nov) |
-| M1 People: employee records, PII masking, encryption, org chart, history | Next (13 Nov) |
-| M2 Leave and the approval engine | 20 Nov |
+| M1 People: employee directory and profiles, field-level PII access, reveal with reason, encryption, org chart, career history | ✅ Done (4 Nov) |
+| M2 Leave and the approval engine | Next (20 Nov) |
 | M3 Recruitment | 27 Nov |
 | M4 Promotions/demotions, separation, dashboard | 4 Dec |
 
@@ -55,7 +55,8 @@ With `DEMO_MODE=true`, the login page lists one demo account per role. Tap one t
 | `npm run dev` | Dev server |
 | `npm run db` | Local MongoDB |
 | `npm run seed` | Wipe and load demo data (refuses non-local databases without `--force`) |
-| `npm test` | Permission-engine unit tests |
+| `npm test` | Permission-engine unit tests (no database needed) |
+| `npm run test:db` | Employee-record tests against the seeded local database (run `npm run seed` after) |
 | `npm run typecheck` / `npm run lint` | Static checks |
 
 ## Code map
@@ -67,12 +68,13 @@ src/
   server/context.ts       who is acting (Ctx), rebuilt from the database on every request
   server/authz.ts         can() / authorize() / scopeFilter() / canGrant(): every access decision
   server/audit.ts         hash-chained audit log: record() and verifyChain()
+  server/employeeView.ts  the ONE serializer for employee records: drops or masks fields by class
   server/services/        business logic; every function takes ctx and checks permissions itself
   server/models/          Mongoose schemas
   app/                    pages (Server Components) and Server Actions
   proxy.ts                optimistic redirect to /login (not the security boundary)
 scripts/                  local-db.ts, seed.ts
-tests/                    authz.test.ts
+tests/                    authz.test.ts (unit), employees.db.test.ts (integration)
 ```
 
 ## Security notes

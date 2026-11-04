@@ -16,6 +16,8 @@ import { Role } from "@/server/models/Role";
 import { Department } from "@/server/models/Department";
 import { Employee } from "@/server/models/Employee";
 import { AuditLog } from "@/server/models/AuditLog";
+import { EmploymentEvent } from "@/server/models/EmploymentEvent";
+import { Counter } from "@/server/models/Counter";
 import { record, SYSTEM } from "@/server/audit";
 import { EXAMPLE_CUSTOM_ROLES, SYSTEM_ROLES } from "@/server/roles";
 
@@ -53,7 +55,38 @@ type Seed = {
   salary: number;
   roles: string[];
   type?: "permanent" | "contract" | "intern";
-  status?: "probation" | "active";
+  status?: "probation" | "active" | "separated";
+  /** For former staff: last working day. */
+  left?: string;
+};
+
+/**
+ * Earlier steps in some careers, so profiles show real history. The first
+ * step is the job they were hired into; their current job is the last step.
+ */
+type Step = { date: string; title: string; grade: string; salary: number; dept?: string };
+const CAREERS: Record<string, Step[]> = {
+  david: [
+    { date: "2017-03-01", title: "Senior Software Engineer", grade: "G4", salary: 160_000 },
+    { date: "2020-01-01", title: "Engineering Manager", grade: "G6", salary: 300_000 },
+  ],
+  collins: [
+    { date: "2019-07-15", title: "Software Engineer", grade: "G3", salary: 95_000 },
+    { date: "2021-07-01", title: "Senior Software Engineer", grade: "G4", salary: 140_000 },
+  ],
+  mercy: [{ date: "2022-02-01", title: "Junior Software Engineer", grade: "G3", salary: 85_000 }],
+  grace: [
+    { date: "2016-09-12", title: "HR Officer", grade: "G3", salary: 90_000 },
+    { date: "2019-05-01", title: "Senior HR Officer", grade: "G4", salary: 150_000 },
+  ],
+  kevin: [{ date: "2021-04-19", title: "HR Assistant", grade: "G2", salary: 55_000 }],
+  brian: [{ date: "2020-10-01", title: "IT Support Officer", grade: "G3", salary: 80_000, dept: "OPS" }],
+  daniel: [{ date: "2019-01-07", title: "Accountant", grade: "G4", salary: 120_000 }],
+};
+/** When each of those people moved into their current job. */
+const CURRENT_FROM: Record<string, string> = {
+  david: "2023-04-01", collins: "2024-01-01", mercy: "2024-03-01", grace: "2022-07-01",
+  kevin: "2023-02-01", brian: "2022-06-01", daniel: "2025-01-01",
 };
 
 // The reporting tree: CEO → heads of department → their teams.
@@ -63,7 +96,7 @@ const PEOPLE: Seed[] = [
   { key: "david", first: "David", last: "Kiprop", gender: "male", dept: "ENG", title: "Head of Engineering", grade: "G7", manager: "ceo", hired: "2017-03-01", born: "1984-09-22", salary: 480_000, roles: ["Line Manager", "Employee"] },
   { key: "collins", first: "Collins", last: "Waweru", gender: "male", dept: "ENG", title: "Senior Software Engineer (Team Lead)", grade: "G5", manager: "david", hired: "2019-07-15", born: "1990-02-11", salary: 230_000, roles: ["Line Manager", "Employee"] },
   { key: "mercy", first: "Mercy", last: "Njeri", gender: "female", dept: "ENG", title: "Software Engineer", grade: "G4", manager: "collins", hired: "2022-02-01", born: "1997-11-03", salary: 145_000, roles: ["Employee"] },
-  { key: "ian", first: "Ian", last: "Mutiso", gender: "male", dept: "ENG", title: "Software Engineer", grade: "G3", manager: "collins", hired: "2024-08-12", born: "1999-04-27", salary: 98_000, roles: ["Employee"], status: "probation" },
+  { key: "ian", first: "Ian", last: "Mutiso", gender: "male", dept: "ENG", title: "Software Engineer", grade: "G3", manager: "collins", hired: "2026-08-12", born: "1999-04-27", salary: 98_000, roles: ["Employee"], status: "probation" },
   { key: "naomi", first: "Naomi", last: "Wairimu", gender: "female", dept: "ENG", title: "QA Engineer", grade: "G3", manager: "collins", hired: "2023-05-02", born: "1996-08-19", salary: 92_000, roles: ["Employee"] },
   { key: "brian", first: "Brian", last: "Otieno", gender: "male", dept: "ENG", title: "IT Systems Administrator", grade: "G4", manager: "david", hired: "2020-10-01", born: "1991-12-05", salary: 150_000, roles: ["Super Admin", "Employee"] },
 
@@ -86,6 +119,7 @@ const PEOPLE: Seed[] = [
   { key: "victor", first: "Victor", last: "Ochieng", gender: "male", dept: "SAL", title: "Sales Executive", grade: "G3", manager: "lucy", hired: "2022-10-03", born: "1996-05-05", salary: 80_000, roles: ["Employee"] },
   { key: "sharon", first: "Sharon", last: "Jepkoech", gender: "female", dept: "SAL", title: "Marketing Officer", grade: "G3", manager: "lucy", hired: "2023-02-20", born: "1998-09-09", salary: 82_000, roles: ["Employee"] },
   { key: "alex", first: "Alex", last: "Muriuki", gender: "male", dept: "SAL", title: "Sales Executive", grade: "G3", manager: "lucy", hired: "2024-04-15", born: "1997-01-28", salary: 78_000, roles: ["Employee"] },
+  { key: "paul", first: "Paul", last: "Wekesa", gender: "male", dept: "SAL", title: "Sales Executive", grade: "G3", manager: "lucy", hired: "2019-03-04", born: "1992-02-02", salary: 75_000, roles: [], status: "separated", left: "2025-09-30" },
   { key: "winnie", first: "Winnie", last: "Akinyi", gender: "female", dept: "SAL", title: "Customer Success Officer", grade: "G2", manager: "lucy", hired: "2025-06-02", born: "2001-07-22", salary: 55_000, roles: ["Employee"], type: "intern" },
 ];
 
@@ -137,7 +171,7 @@ async function main() {
   await connectDB();
   console.log("Wiping database…");
   await mongoose.connection.dropDatabase();
-  await Promise.all([User, Role, Department, Employee, AuditLog].map((m) => m.syncIndexes()));
+  await Promise.all([User, Role, Department, Employee, AuditLog, EmploymentEvent].map((m) => m.syncIndexes()));
 
   // Roles
   const roles = await Role.insertMany([
@@ -182,6 +216,7 @@ async function main() {
       employmentType: p.type ?? "permanent",
       status: p.status ?? "active",
       hireDate: new Date(p.hired),
+      separationDate: p.left ? new Date(p.left) : null,
       retirementDate: addYears(p.born, RETIREMENT_AGE),
       contact: {
         personalEmail: `${p.first}.${p.last}${digits(2)}@example.com`.toLowerCase(),
@@ -207,6 +242,46 @@ async function main() {
     });
   }
 
+  await Counter.create({ _id: "staffNo", value: staffNo });
+
+  // Career histories: hire, then each transfer / promotion / increment, then any exit
+  const deptName = (code: string) => DEPARTMENTS.find((d) => d.code === code)!.name;
+  const managerName = (key: string | null) => {
+    const m = PEOPLE.find((x) => x.key === key);
+    return m ? `${m.first} ${m.last}` : "(none)";
+  };
+  const events: Record<string, unknown>[] = [];
+  for (const p of PEOPLE) {
+    const current: Step = { date: CURRENT_FROM[p.key] ?? p.hired, title: p.title, grade: p.grade, salary: p.salary, dept: p.dept };
+    const steps = [...(CAREERS[p.key] ?? []), current];
+    const snap = (st: Step) => ({
+      jobTitle: st.title,
+      grade: st.grade,
+      basicSalary: st.salary,
+      departmentId: deptId(st.dept ?? p.dept),
+      departmentName: deptName(st.dept ?? p.dept),
+      managerName: managerName(p.manager),
+    });
+    const base = { employeeId: ids.get(p.key), actorName: "Grace Wanjiru" };
+    const first = steps[0];
+    events.push({ ...base, type: "hire", effectiveDate: new Date(first.date), summary: `Joined ${deptName(first.dept ?? p.dept)} as ${first.title}`, to: snap(first) });
+    for (let i = 1; i < steps.length; i++) {
+      const [a, b] = [steps[i - 1], steps[i]];
+      if ((a.dept ?? p.dept) !== (b.dept ?? p.dept)) {
+        events.push({ ...base, type: "transfer", effectiveDate: new Date(b.date), summary: `Moved from ${deptName(a.dept ?? p.dept)} to ${deptName(b.dept ?? p.dept)}`, from: snap(a), to: snap(b) });
+      }
+      if (a.grade !== b.grade || a.title !== b.title) {
+        events.push({ ...base, type: "promotion", effectiveDate: new Date(b.date), summary: `Promoted to ${b.title}`, from: snap(a), to: snap(b) });
+      } else if (a.salary !== b.salary) {
+        events.push({ ...base, type: "salary_change", effectiveDate: new Date(b.date), summary: "Salary increased: annual increment", from: { basicSalary: a.salary }, to: { basicSalary: b.salary } });
+      }
+    }
+    if (p.left) {
+      events.push({ ...base, type: "separation", effectiveDate: new Date(p.left), summary: "Resigned (moved to another company)", from: snap(current), to: { status: "separated" } });
+    }
+  }
+  await EmploymentEvent.insertMany(events);
+
   // Department heads
   const heads: Record<string, string> = { EXEC: "ceo", ENG: "david", FIN: "esther", HR: "grace", OPS: "joseph", SAL: "lucy" };
   for (const [code, key] of Object.entries(heads)) {
@@ -215,7 +290,7 @@ async function main() {
 
   // Logins: every employee, plus an external auditor with no employee record
   const passwordHash = await hashPassword(password);
-  for (const p of PEOPLE) {
+  for (const p of PEOPLE.filter((x) => x.status !== "separated")) {
     await User.create({
       email: `${p.first}.${p.last}@kilele.co.ke`.toLowerCase(),
       name: `${p.first} ${p.last}`,
@@ -231,12 +306,13 @@ async function main() {
     roleIds: [roleId("Auditor")],
   });
 
+  const accounts = await User.countDocuments();
   await record(SYSTEM, {
     action: "system.seed",
-    summary: `Loaded demo data: ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees, ${PEOPLE.length + 1} accounts`,
+    summary: `Loaded demo data: ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees (${events.length} career events), ${accounts} accounts`,
   });
 
-  console.log(`Seeded ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees, ${PEOPLE.length + 1} accounts.`);
+  console.log(`Seeded ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees, ${events.length} career events, ${accounts} accounts.`);
   console.log("Every demo account's password is DEMO_PASSWORD from .env.local.");
   await mongoose.disconnect();
 }

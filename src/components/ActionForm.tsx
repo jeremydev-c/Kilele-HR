@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useActionState, useContext, type ReactNode } from "react";
+import { createContext, startTransition, useActionState, useContext, type ReactNode } from "react";
 import Link from "next/link";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import type { ActionResult } from "@/server/errors";
@@ -29,9 +29,13 @@ export function ActionForm({
   return (
     <FormState.Provider value={state}>
       <form
-        action={formAction}
+        // Submitted by hand rather than via <form action>: React resets a form
+        // after an action, which would wipe a long form on a single typo.
         onSubmit={(e) => {
-          if (confirm && !window.confirm(confirm)) e.preventDefault();
+          e.preventDefault();
+          if (confirm && !window.confirm(confirm)) return;
+          const fd = new FormData(e.currentTarget, (e.nativeEvent as SubmitEvent).submitter);
+          startTransition(() => formAction(fd));
         }}
       >
         {/* Layout classes go on the fieldset, so spacing utilities reach the fields. */}

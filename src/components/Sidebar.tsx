@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, ShieldCheck, ScrollText, LogOut, Menu, X, KeyRound,
+  LayoutDashboard, Users, ShieldCheck, ScrollText, LogOut, Menu, X, KeyRound, UserRound, Contact, Network,
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "./Logo";
@@ -14,6 +14,9 @@ const ICONS = {
   users: Users,
   shield: ShieldCheck,
   audit: ScrollText,
+  person: UserRound,
+  people: Contact,
+  org: Network,
 } satisfies Record<string, LucideIcon>;
 
 export type NavSection = {

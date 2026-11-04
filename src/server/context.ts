@@ -40,7 +40,14 @@ export const getCtx = cache(async (): Promise<Ctx | null> => {
   const user = await User.findById(session.sub).lean();
   // A disabled account, or a "sign out everywhere", invalidates old cookies at once.
   if (!user || user.status !== "active" || user.sessionVersion !== session.sv) return null;
+  return ctxForUser(user, await clientIp());
+});
 
+/** Build a Ctx for a user record: roles → grants, plus their employee record for scopes. Also used by tests. */
+export async function ctxForUser(
+  user: { _id: unknown; name: string; email: string; roleIds: unknown[]; extraGrants: string[]; employeeId?: unknown; mustChangePassword: boolean },
+  ip: string | null,
+): Promise<Ctx> {
   const [roles, employee] = await Promise.all([
     Role.find({ _id: { $in: user.roleIds } }).lean(),
     user.employeeId ? Employee.findById(user.employeeId).select("departmentId managerPath status").lean() : null,
@@ -63,9 +70,9 @@ export const getCtx = cache(async (): Promise<Ctx | null> => {
     roleNames: roles.map((r) => r.name),
     isSuperAdmin: grantStrings.includes(WILDCARD),
     mustChangePassword: user.mustChangePassword,
-    ip: await clientIp(),
+    ip,
   };
-});
+}
 
 /** For pages and actions that need a signed-in user. */
 export async function requireCtx(): Promise<Ctx> {

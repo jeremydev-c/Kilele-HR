@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Audit trail" };
 
 function tone(action: string) {
   if (/failed|locked|blocked|BROKEN/.test(action)) return "amber" as const;
-  if (/disable|delete|reveal|reset/.test(action)) return "red" as const;
+  if (/disable|delete|reveal|reset|\.pii/.test(action)) return "red" as const;
   if (action.startsWith("auth.")) return "gray" as const;
   return "blue" as const;
 }

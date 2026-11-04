@@ -96,10 +96,16 @@ Seeing your own record is not a special case in code: the Employee role grants `
 1. **One serializer.** Every employee record leaving the server goes through `toEmployeeView(record, ctx)`, which drops or masks fields by class. A masked National ID shows as `••••4821`.
 2. **Reveal with a reason.** Even with PII access, sensitive fields start masked. Clicking *Reveal* asks for a reason ("Preparing NSSF returns") and logs it to the audit trail. This follows the Kenya Data Protection Act 2019 principle of purpose limitation: you can show *why* each person viewed each record.
 3. **Encrypted at rest.** National ID, KRA PIN, NSSF, SHA, date of birth and bank account are encrypted with AES-256-GCM before they reach MongoDB, so a leaked database dump shows ciphertext. The key comes from the environment, never the database.
-4. **Blind index.** Encrypted values can't be searched or kept unique, so we also store an HMAC of the National ID. This catches duplicate IDs and allows exact-match search without decrypting anything.
+4. **Blind index.** Encrypted values can't be searched or kept unique, so we also store an HMAC of the National ID. This catches duplicate IDs and allows exact-match search without decrypting anything. Typing an 8-digit number in the directory search finds that person, but only for users with PII access.
+5. **Who looked at what.** Opening someone's profile logs which classes you were shown ("directory, contact, PII (masked), pay"). Opening the PII edit form counts as a view too, because it prefills the real values. Repeat views of the same record within 10 minutes count once, so refreshes don't bury the trail. Reveals with a reason are always logged.
+6. **Edits need both rights.** Editing contact details needs `employee:update` *and* `employee.contact:read` for that person, and PII edits need `employee.pii:read`. You can't change what you can't see. Audit entries for contact, PII and pay changes name the fields but never copy the values.
+7. **Pay separately.** An HR Officer can add a new hire but not set their salary: the grade's starting pay is used. Salary changes need `employee.pay:update`, must stay inside the grade's band, and can't be made to your own pay. Grade changes only happen through an approved promotion or demotion (M4).
 
 ### Employment history as events
-Hires, promotions, demotions, transfers, salary changes and separations are each saved as an **effective-dated employment event**. The employee's current title, grade and department are a snapshot of the latest event. So the career timeline on the profile is always complete, and nothing is overwritten.
+Hires, promotions, demotions, transfers, manager changes, salary changes and separations are each saved as an **effective-dated employment event**. The employee's current title, grade and department are a snapshot of the latest event. So the career timeline on the profile is always complete, and nothing is overwritten. Salary figures in the timeline are hidden from anyone without pay access to that person.
+
+### Changing someone's manager
+The new `managerPath` is the new manager's path plus the new manager. Everyone below the person inherits it, all in one transaction. Making someone report to a person who is below them would create a loop, so it's refused.
 
 ## 5. One approval engine for every module
 
@@ -171,7 +177,7 @@ Weekly check-ins with Charles (proposed Fri 5pm). Each milestone ends with the a
 | Check-in | Milestone | Shows |
 |---|---|---|
 | Fri 6 Nov | **M0: Foundation** ✅ built 4 Nov | This design, login, roles, permission matrix, users, audit log with hash chain |
-| Fri 13 Nov | **M1: People** | Employee directory, profiles, PII masking and reveal, encryption at rest, org chart, employment history |
+| Fri 13 Nov | **M1: People** ✅ built 4 Nov | Employee directory, profiles, PII masking and reveal, encryption at rest, org chart, employment history |
 | Fri 20 Nov | **M2: Leave and approvals** | Workflow engine, My Approvals inbox, leave types, balances, calendar |
 | Fri 27 Nov | **M3: Recruitment** | Requisition → careers page → apply → shortlist → interview → hire |
 | Fri 4 Dec | **M4: Movements and exits** | Promotions/demotions, separation with clearance and exit interview, dashboard, polish, demo script rehearsal |
