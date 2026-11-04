@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ShieldCheck, Users, ScrollText, ShieldAlert } from "lucide-react";
+import { CalendarDays, Inbox, Plane, ShieldCheck, Users, ScrollText, ShieldAlert } from "lucide-react";
+import { Employee } from "@/server/models/Employee";
+import { inboxCount } from "@/server/services/approvals";
+import { balancesFor, offToday } from "@/server/services/leave";
 import { requireCtx } from "@/server/context";
 import { has } from "@/server/authz";
 import { connectDB } from "@/lib/db";
@@ -30,23 +33,36 @@ export default async function DashboardPage() {
 
   const canUsers = has(ctx, "user:read");
   const canAudit = has(ctx, "audit:read");
-  const [activeUsers, roleCount, recent] = await Promise.all([
+  const myEmployee = ctx.employee && has(ctx, "leave:apply") ? await Employee.findById(ctx.employee.id).lean() : null;
+  const [activeUsers, roleCount, recent, waiting, away, balances] = await Promise.all([
     canUsers ? User.countDocuments({ status: "active" }) : null,
     canUsers ? Role.countDocuments() : null,
     canAudit ? AuditLog.find().sort({ seq: -1 }).limit(6).lean() : null,
+    inboxCount(ctx),
+    offToday(ctx),
+    myEmployee ? balancesFor(myEmployee, new Date().getUTCFullYear()) : null,
   ]);
+  const annual = balances?.find((b) => b.code === "ANNUAL");
 
   return (
     <>
       <PageHeader title={`${greeting()}, ${ctx.name.split(" ")[0]}`} subtitle={`Signed in as ${ctx.roleNames.join(", ")}`} />
 
-      {(canUsers || canAudit) && (
-        <div className="mb-6 grid gap-4 sm:grid-cols-3">
-          {activeUsers !== null && <Stat icon={Users} label="Active accounts" value={activeUsers} href="/admin/users" />}
-          {roleCount !== null && <Stat icon={ShieldCheck} label="Roles" value={roleCount} href={has(ctx, "role:manage") ? "/admin/roles" : undefined} />}
-          {recent && <Stat icon={ScrollText} label="Audit entries" value={recent[0]?.seq ?? 0} href="/admin/audit" />}
-        </div>
-      )}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {waiting > 0 && <Stat icon={Inbox} label="Waiting for your approval" value={waiting} href="/approvals" highlight />}
+        {annual && <Stat icon={CalendarDays} label={`Annual leave days left (${annual.pending ? `${annual.pending} pending` : "none pending"})`} value={annual.available} href="/leave" />}
+        {away && (
+          <Stat
+            icon={Plane}
+            label={away.length ? `Away today: ${away.slice(0, 3).map((a) => a.employeeName.split(" ")[0]).join(", ")}${away.length > 3 ? "…" : ""}` : "Away today"}
+            value={away.length}
+            href="/leave/calendar"
+          />
+        )}
+        {activeUsers !== null && <Stat icon={Users} label="Active accounts" value={activeUsers} href="/admin/users" />}
+        {roleCount !== null && <Stat icon={ShieldCheck} label="Roles" value={roleCount} href={has(ctx, "role:manage") ? "/admin/roles" : undefined} />}
+        {recent && <Stat icon={ScrollText} label="Audit entries" value={recent[0]?.seq ?? 0} href="/admin/audit" />}
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <section className="card overflow-hidden">
@@ -87,10 +103,14 @@ export default async function DashboardPage() {
   );
 }
 
-function Stat({ icon: Icon, label, value, href }: { icon: typeof Users; label: string; value: number; href?: string }) {
+function Stat({
+  icon: Icon, label, value, href, highlight,
+}: {
+  icon: typeof Users; label: string; value: number; href?: string; highlight?: boolean;
+}) {
   const body = (
-    <div className="card flex items-center gap-4 p-4 transition-colors hover:border-brand-300">
-      <span className="rounded-lg bg-brand-50 p-2.5 text-brand-700">
+    <div className={`card flex h-full items-center gap-4 p-4 transition-colors hover:border-brand-300 ${highlight ? "border-amber-300 bg-amber-50" : ""}`}>
+      <span className={`rounded-lg p-2.5 ${highlight ? "bg-amber-100 text-amber-700" : "bg-brand-50 text-brand-700"}`}>
         <Icon className="size-5" />
       </span>
       <div>

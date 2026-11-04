@@ -13,7 +13,7 @@ export async function nextNumber(name: string, session?: ClientSession): Promise
   const doc = await Counter.findOneAndUpdate(
     { _id: name },
     { $inc: { value: 1 } },
-    { upsert: true, new: true, session },
+    { upsert: true, returnDocument: "after", session },
   ).lean();
   return doc!.value;
 }

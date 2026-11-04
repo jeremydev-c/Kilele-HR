@@ -13,8 +13,8 @@ An ERP-style HR management system: access control, employee records, recruitment
 |---|---|
 | M0 Foundation: login, roles, scoped permissions, users, hash-chained audit trail | ✅ Done (4 Nov) |
 | M1 People: employee directory and profiles, field-level PII access, reveal with reason, encryption, org chart, career history | ✅ Done (4 Nov) |
-| M2 Leave and the approval engine | Next (20 Nov) |
-| M3 Recruitment | 27 Nov |
+| M2 Leave and the shared approval engine: My Approvals inbox, Kenyan leave rules, live balances, team calendar | ✅ Done (4 Nov) |
+| M3 Recruitment | Next (27 Nov) |
 | M4 Promotions/demotions, separation, dashboard | 4 Dec |
 
 ## Run it
@@ -55,8 +55,8 @@ With `DEMO_MODE=true`, the login page lists one demo account per role. Tap one t
 | `npm run dev` | Dev server |
 | `npm run db` | Local MongoDB |
 | `npm run seed` | Wipe and load demo data (refuses non-local databases without `--force`) |
-| `npm test` | Permission-engine unit tests (no database needed) |
-| `npm run test:db` | Employee-record tests against the seeded local database (run `npm run seed` after) |
+| `npm test` | Unit tests: permission engine, Kenyan holidays and working days (no database needed) |
+| `npm run test:db` | Employee and leave/approval tests against the seeded local database (run `npm run seed` after) |
 | `npm run typecheck` / `npm run lint` | Static checks |
 
 ## Code map
@@ -69,12 +69,14 @@ src/
   server/authz.ts         can() / authorize() / scopeFilter() / canGrant(): every access decision
   server/audit.ts         hash-chained audit log: record() and verifyChain()
   server/employeeView.ts  the ONE serializer for employee records: drops or masks fields by class
+  server/workflow.ts      the ONE approval engine: routing, who may decide, the inbox
+  lib/leaveDays.ts        Kenyan public holidays and working-day counting (pure, shared with the browser)
   server/services/        business logic; every function takes ctx and checks permissions itself
   server/models/          Mongoose schemas
   app/                    pages (Server Components) and Server Actions
   proxy.ts                optimistic redirect to /login (not the security boundary)
 scripts/                  local-db.ts, seed.ts
-tests/                    authz.test.ts (unit), employees.db.test.ts (integration)
+tests/                    *.test.ts (unit), *.db.test.ts (integration)
 ```
 
 ## Security notes

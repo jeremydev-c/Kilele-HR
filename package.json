@@ -10,8 +10,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/authz.test.ts",
-    "test:db": "tsx --env-file=.env.local --test tests/*.db.test.ts",
+    "test": "tsx --test tests/authz.test.ts tests/leaveDays.test.ts",
+    "test:db": "tsx --env-file=.env.local --test --test-concurrency=1 tests/*.db.test.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts"
   },
   "dependencies": {

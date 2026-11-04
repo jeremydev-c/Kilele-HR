@@ -18,8 +18,35 @@ import { Employee } from "@/server/models/Employee";
 import { AuditLog } from "@/server/models/AuditLog";
 import { EmploymentEvent } from "@/server/models/EmploymentEvent";
 import { Counter } from "@/server/models/Counter";
+import { LeaveAdjustment, LeaveRequest, LeaveType, PublicHoliday } from "@/server/models/Leave";
 import { record, SYSTEM } from "@/server/audit";
+import { ctxForUser } from "@/server/context";
 import { EXAMPLE_CUSTOM_ROLES, SYSTEM_ROLES } from "@/server/roles";
+import { adjustBalance, applyLeave, cancelLeave } from "@/server/services/leave";
+import { decide } from "@/server/services/approvals";
+
+/** Kenyan defaults (Employment Act 2007). HR can change them in Leave settings. */
+const LEAVE_TYPES = [
+  { code: "ANNUAL", name: "Annual leave", daysPerYear: 21, dayCount: "working", proRata: true, carryOverMax: 5, order: 1,
+    description: "21 working days a year (Employment Act s.28). New joiners get a share for the months left in the year; up to 5 unused days roll over." },
+  { code: "SICK", name: "Sick leave", daysPerYear: 14, dayCount: "working", minServiceMonths: 2, backdateDays: 7, order: 2,
+    description: "7 days on full pay and 7 on half pay a year, after 2 months' service (s.30). Can be logged up to 7 days late." },
+  { code: "MATERNITY", name: "Maternity leave", daysPerYear: 90, dayCount: "calendar", gender: "female", order: 3,
+    description: "Three months on full pay (s.29)." },
+  { code: "PATERNITY", name: "Paternity leave", daysPerYear: 14, dayCount: "calendar", gender: "male", order: 4,
+    description: "Two weeks on full pay (s.29(8))." },
+  { code: "COMPASSIONATE", name: "Compassionate leave", daysPerYear: 5, dayCount: "working", order: 5,
+    description: "Bereavement or a serious family emergency. Company policy: the Act doesn't set this one." },
+  { code: "STUDY", name: "Study / exam leave", daysPerYear: 10, dayCount: "working", paid: false, minServiceMonths: 12, order: 6,
+    description: "Unpaid, for exams on an approved course. Company policy." },
+];
+
+/** Gazetted each year by the Interior CS, so they're data, not code. 2027 is the expected date. */
+const EXTRA_HOLIDAYS = [
+  { date: "2025-03-31", name: "Idd-ul-Fitr" },
+  { date: "2026-03-20", name: "Idd-ul-Fitr" },
+  { date: "2027-03-10", name: "Idd-ul-Fitr (expected)" },
+];
 
 // ---- Repeatable "random" numbers, so every seed gives the same demo data ----
 let state = 20261104;
@@ -171,7 +198,7 @@ async function main() {
   await connectDB();
   console.log("Wiping database…");
   await mongoose.connection.dropDatabase();
-  await Promise.all([User, Role, Department, Employee, AuditLog, EmploymentEvent].map((m) => m.syncIndexes()));
+  await Promise.all([User, Role, Department, Employee, AuditLog, EmploymentEvent, LeaveType, LeaveRequest, LeaveAdjustment, PublicHoliday].map((m) => m.syncIndexes()));
 
   // Roles
   const roles = await Role.insertMany([
@@ -306,13 +333,53 @@ async function main() {
     roleIds: [roleId("Auditor")],
   });
 
+  // ---- Leave: policies, holidays, and a year of requests ----------------------
+  // Created through the real services with an injected clock ("as if applied on
+  // 20 July"), so every request has a genuine approval trail and audit entries.
+  await LeaveType.insertMany(LEAVE_TYPES);
+  await PublicHoliday.insertMany(EXTRA_HOLIDAYS);
+
+  const ctxOf = async (key: string) => ctxForUser((await User.findOne({ employeeId: ids.get(key) }).lean())!, "seed");
+  const on = (iso: string) => new Date(`${iso}T09:00:00+03:00`);
+  type Decision = [approver: string, decision: "approve" | "reject", decidedOn: string, comment?: string];
+  const leave = async (who: string, typeCode: string, start: string, end: string, appliedOn: string, decisions: Decision[] = [], extra: { reason?: string; handoverTo?: string } = {}) => {
+    const id = await applyLeave(await ctxOf(who), { typeCode, start, end, ...extra }, on(appliedOn));
+    for (const [approver, decision, decidedOn, comment] of decisions) {
+      await decide(await ctxOf(approver), "leave", id, { decision, comment: comment ?? "" }, on(decidedOn));
+    }
+    return id;
+  };
+
+  // Last year: Mercy's long April break (so she carries days over into 2026)
+  await leave("mercy", "ANNUAL", "2025-04-07", "2025-04-25", "2025-03-10", [["collins", "approve", "2025-03-11"], ["grace", "approve", "2025-03-12"]]);
+  // Earlier this year, all approved
+  await leave("mercy", "ANNUAL", "2026-08-10", "2026-08-21", "2026-07-20", [["collins", "approve", "2026-07-21"], ["grace", "approve", "2026-07-21"]], { handoverTo: "Naomi covers code reviews" });
+  await leave("victor", "PATERNITY", "2026-09-01", "2026-09-14", "2026-08-03", [["lucy", "approve", "2026-08-03", "Congratulations!"], ["grace", "approve", "2026-08-04"]]);
+  await leave("naomi", "SICK", "2026-10-12", "2026-10-13", "2026-10-14", [["collins", "approve", "2026-10-14", "Get well soon"], ["kevin", "approve", "2026-10-15"]], { reason: "Flu. Doctor's note handed to HR." });
+  await leave("joseph", "ANNUAL", "2026-06-15", "2026-06-26", "2026-05-20", [["ceo", "approve", "2026-05-21"], ["kevin", "approve", "2026-05-21"]]);
+  // Away right now (shows on the dashboard on 4 Nov)
+  await leave("sharon", "ANNUAL", "2026-11-02", "2026-11-06", "2026-10-15", [["lucy", "approve", "2026-10-16"], ["kevin", "approve", "2026-10-16"]], { handoverTo: "Victor handles the newsletter" });
+  // Rejected, with a reason the employee can read
+  await leave("alex", "ANNUAL", "2026-12-01", "2026-12-04", "2026-10-28", [["lucy", "reject", "2026-10-29", "Quarter-end sales push. Can we move this to the second week of January?"]]);
+  // Cancelled by the employee
+  const agnes = await leave("agnes", "COMPASSIONATE", "2026-11-16", "2026-11-18", "2026-11-02");
+  await cancelLeave(await ctxOf("agnes"), agnes, "Family matter resolved", on("2026-11-03"));
+  // Waiting for decisions (the demo inboxes)
+  await leave("brian", "ANNUAL", "2026-12-07", "2026-12-11", "2026-11-03", [], { reason: "Family trip to Mombasa", handoverTo: "Collins has the admin passwords vault access" });
+  await leave("mercy", "ANNUAL", "2026-12-14", "2026-12-24", "2026-11-02", [], { handoverTo: "Ian takes the payments module" });
+  await leave("daniel", "ANNUAL", "2026-11-23", "2026-11-27", "2026-11-02", [["esther", "approve", "2026-11-03", "Month-end close is done by then."]]);
+  await leave("grace", "ANNUAL", "2026-12-28", "2026-12-31", "2026-11-01");
+  // An HR correction
+  await adjustBalance(await ctxOf("grace"), { employeeId: String(ids.get("patrick")), typeCode: "ANNUAL", days: 1, reason: "Worked on Mashujaa Day to receive a delivery" }, on("2026-10-21"));
+
+  const leaveCount = await LeaveRequest.countDocuments();
   const accounts = await User.countDocuments();
   await record(SYSTEM, {
     action: "system.seed",
     summary: `Loaded demo data: ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees (${events.length} career events), ${accounts} accounts`,
   });
 
-  console.log(`Seeded ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees, ${events.length} career events, ${accounts} accounts.`);
+  console.log(`Seeded ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees, ${events.length} career events, ${accounts} accounts, ${leaveCount} leave requests.`);
   console.log("Every demo account's password is DEMO_PASSWORD from .env.local.");
   await mongoose.disconnect();
 }

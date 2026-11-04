@@ -88,6 +88,38 @@ Only `enc:v1:…` ciphertext. "If someone steals the database, they get gibberis
 
 ---
 
+## Check-in 3 (Fri 20 Nov): Leave and the approval engine, about 10 minutes
+
+**Open (1 min):** "Leave, promotions, hiring and exits all need approvals. I built that once, as an engine, and leave is the first thing using it." Show `LEAVE_WORKFLOW` in `src/server/services/leave.ts`: two steps, eight lines. That's all leave says about approvals.
+
+**1. Apply (2 min).** Sign in as **Mercy** → *My leave*. Balances: 7 annual days left, with *5 carried over* from 2025. First try **9 – 30 November**: 16 working days, *only 7 available*, and the button disables. Then pick **25 – 31 December**: *4 working days · 3 left after this*, "Christmas Day not counted". "Same function in the browser and the server, so the preview can't disagree with the decision." Submit → "It's now with Collins Waweru".
+
+**2. Routing (2 min).** Sign in as **David** → dashboard says *1 waiting for your approval* → open **Brian's** request.
+- *Before you decide*: balance after this, and whether anyone else in Engineering is away then.
+- Click **Reject** with no comment: refused ("the employee will see this").
+- Approve with a comment → it moves to **HR**. David's *Waiting for HR* note: he holds `leave:approve@team`, the HR step needs `@all`. "Same permission, different scope, different job."
+
+**3. HR and the trail (2 min).** Sign in as **Grace** → *Approvals* shows Brian (HR step) and Daniel (already approved by Esther). Approve Brian. The trail shows submitted → David → Grace, with times and comments. *Audit trail* → filter *Leave*.
+
+**4. The rules people try to break (2 min).**
+- Grace's own December leave is in the **CEO's** inbox, never her own: nobody approves their own request, not even a Super Admin.
+- Kevin reports to Grace and Grace is HR: one click covers both steps, and the trail says so.
+- Two HR people clicking *Approve* on the same request at the same moment: only one wins (`npm run test:db` proves it).
+
+**5. Calendar and settings (1 min).** *Leave calendar*, December: who's away, weekends and holidays left blank. *Leave settings*: change annual leave to 22 and every balance updates at once ("balances are worked out fresh, never stored"). Add a gazetted holiday and the working-day counts include it.
+
+**Questions Charles might ask**
+
+| Question | Answer |
+|---|---|
+| Why not store a balance number? | A stored total drifts the moment a cancel or an edit misses an update. Working it out from the requests means it's always right, and the "why" is visible: entitlement, carry-over, adjustments, taken, pending. For one employee it's a handful of documents. |
+| What stops two requests spending the same days? | Pending days count against the balance, and each application takes a per-employee lock inside a transaction. The second of two simultaneous requests sees the first. |
+| What if the line manager doesn't have approval rights, or has left? | The manager step walks up the reporting line to the nearest active manager who holds `leave:approve` for this person. With nobody, it's skipped and the trail says why. |
+| How will promotions reuse this? | Declare the steps, set `distinctApprovers: true` (so a manager can't approve a promotion at both steps), and register the collection in the approvals inbox. The engine, the inbox and the trail come for free. |
+| Kenyan public holidays move. How do you handle that? | The fixed ones and Easter are calculated, with the Sunday→Monday rule from the Public Holidays Act. Eid and one-off gazetted days are data HR adds in Leave settings. |
+
+---
+
 ## Demo day (early December): outline, about 10 minutes
 
 To be filled in as the modules land. Planned story: "a year in the life of Kilele Group".

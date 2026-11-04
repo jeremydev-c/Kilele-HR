@@ -112,10 +112,17 @@ The new `managerPath` is the new manager's path plus the new manager. Everyone b
 Leave, promotions/demotions, job requisitions and separations all need "submit → someone approves → maybe someone else approves". Instead of writing that four times, there's **one workflow engine** (`src/server/workflow.ts`). Each request type declares its steps:
 
 ```ts
-leave:      [ manager, hr(leave:approve) ]
-promotion:  [ manager, hr(promotion:approve) ]
-requisition:[ hr(recruitment:manage) ]
-separation: [ manager, hr(separation:approve) ]   // then clearance
+// src/server/services/leave.ts: this is all leave has to say about approvals
+export const LEAVE_WORKFLOW: WorkflowDef = {
+  steps: [
+    { key: "manager", label: "Line manager", approver: { kind: "manager", perm: "leave:approve" } },
+    { key: "hr",      label: "HR",           approver: { kind: "permission", perm: "leave:approve", scope: "all" } },
+  ],
+  distinctApprovers: false,
+};
+// promotion:   [ manager, hr(promotion:approve@all) ], distinctApprovers: true   (M4)
+// requisition: [ hr(recruitment:manage) ]                                      (M3)
+// separation:  [ manager, hr(separation:approve@all) ], then clearance          (M4)
 ```
 
 ```mermaid
@@ -129,11 +136,26 @@ stateDiagram-v2
   Rejected --> [*]
 ```
 
-- A "manager" step goes to the subject's line manager. If there's no manager (e.g. the CEO), it's skipped.
-- A "permission" step goes to anyone holding that permission with a scope covering the subject.
-- Each decision is saved on the request (who, when, comment) and in the audit log.
-- One **My Approvals** inbox lists everything waiting for you, across all modules.
-- When the last step approves, the module's `onApproved` hook runs, e.g. deduct leave days or write the promotion's employment event.
+- **Manager step:** it goes to the *nearest manager up the reporting line who actually holds the permission* for this employee. A team lead without approval rights is passed over to their boss. If nobody qualifies (e.g. the CEO), the step is skipped and the trail says why. The approver is fixed when the request is submitted, so the trail can say "Waiting for Collins Waweru".
+- **Permission step:** it goes to anyone holding that permission *at that scope*. A line manager holds `leave:approve@team`, which covers the manager step but not the HR step (`@all`). The same permission at different scopes separates the two jobs.
+- **Rules:** nobody decides their own request, whatever their role. Rejecting needs a reason the employee can read. With `distinctApprovers`, each step needs a different person (separation of duties for promotions). Without it, if the person who just approved is also the next approver (Grace is Kevin's manager *and* HR), one click approves both steps and the trail records both.
+- **Two approvers at once:** the save only succeeds if the step is still the one they looked at (`updateOne` filtered on `workflow.current`). The second click gets "someone else just decided this", so it can never be approved twice.
+- **One inbox:** each request stores who it's waiting for (`pendingWith`), so *My Approvals* is one indexed query per request type. Modules register in `services/approvals.ts`, and leave is the first.
+- Every decision is saved on the request (who, when, comment) and in the audit trail.
+
+### Leave rules (Kenya, Employment Act 2007)
+| Type | Default | Counted in | Notes |
+|---|---|---|---|
+| Annual | 21 days | working days | Pro-rata for joiners; up to 5 days carry over |
+| Sick | 14 days | working days | After 2 months' service; can be logged 7 days late |
+| Maternity | 90 days | calendar days | Women |
+| Paternity | 14 days | calendar days | Men |
+| Compassionate | 5 days | working days | Company policy (not in the Act) |
+| Study / exam | 10 days, unpaid | working days | After 12 months; company policy |
+
+- **Working days** skip weekends and public holidays. Fixed holidays and Easter are calculated (`lib/leaveDays.ts`), and a Sunday holiday moves to the Monday. Eid and one-off gazetted days are added by HR in Leave settings. The browser previews the count with the same function the server uses to decide.
+- **Balances are never stored:** entitlement + carry-over + HR adjustments − approved − pending, worked out on every read. Pending days are reserved, so you can't apply twice for the same days. Cancelling just changes the status, and the days come back automatically.
+- **Checked on apply:** overlapping requests, enough balance, eligibility (gender, months of service), no past dates (except sick leave's 7-day window), no crossing into a new year, and no weekend-only requests. Each application takes a per-employee lock inside a transaction, so two simultaneous requests can't both spend the same days.
 
 ## 6. Modules
 
@@ -178,7 +200,7 @@ Weekly check-ins with Charles (proposed Fri 5pm). Each milestone ends with the a
 |---|---|---|
 | Fri 6 Nov | **M0: Foundation** ✅ built 4 Nov | This design, login, roles, permission matrix, users, audit log with hash chain |
 | Fri 13 Nov | **M1: People** ✅ built 4 Nov | Employee directory, profiles, PII masking and reveal, encryption at rest, org chart, employment history |
-| Fri 20 Nov | **M2: Leave and approvals** | Workflow engine, My Approvals inbox, leave types, balances, calendar |
+| Fri 20 Nov | **M2: Leave and approvals** ✅ built 4 Nov | Workflow engine, My Approvals inbox, leave types, balances, calendar |
 | Fri 27 Nov | **M3: Recruitment** | Requisition → careers page → apply → shortlist → interview → hire |
 | Fri 4 Dec | **M4: Movements and exits** | Promotions/demotions, separation with clearance and exit interview, dashboard, polish, demo script rehearsal |
 | Early Dec | **Demo day at Strathmore** | 10-minute live demo (`docs/DEMO.md`) |

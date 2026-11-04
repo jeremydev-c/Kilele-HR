@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, ShieldCheck, ScrollText, LogOut, Menu, X, KeyRound, UserRound, Contact, Network,
+  CalendarDays, CalendarRange, Inbox, Settings2,
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "./Logo";
@@ -17,11 +18,15 @@ const ICONS = {
   person: UserRound,
   people: Contact,
   org: Network,
+  leave: CalendarDays,
+  calendar: CalendarRange,
+  inbox: Inbox,
+  settings: Settings2,
 } satisfies Record<string, LucideIcon>;
 
 export type NavSection = {
   title: string;
-  items: { href: string; label: string; icon: keyof typeof ICONS }[];
+  items: { href: string; label: string; icon: keyof typeof ICONS; badge?: number }[];
 };
 
 export function Sidebar({
@@ -35,6 +40,11 @@ export function Sidebar({
 }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  // Highlight the most specific match: on /leave/calendar, "Leave calendar", not "My leave".
+  const activeHref = sections
+    .flatMap((s) => s.items.map((i) => i.href))
+    .filter((href) => path === href || path.startsWith(href + "/"))
+    .sort((a, b) => b.length - a.length)[0];
 
   return (
     <>
@@ -60,7 +70,7 @@ export function Sidebar({
               <ul className="space-y-0.5">
                 {s.items.map((item) => {
                   const Icon = ICONS[item.icon];
-                  const active = path === item.href || path.startsWith(item.href + "/");
+                  const active = item.href === activeHref;
                   return (
                     <li key={item.href}>
                       <Link
@@ -71,6 +81,9 @@ export function Sidebar({
                         }`}
                       >
                         <Icon className="size-4" /> {item.label}
+                        {!!item.badge && (
+                          <span className="ml-auto rounded-full bg-amber-400 px-1.5 text-xs font-semibold text-brand-950">{item.badge}</span>
+                        )}
                       </Link>
                     </li>
                   );
