@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, ShieldCheck, ScrollText, LogOut, Menu, X, KeyRound, UserRound, Contact, Network,
-  CalendarDays, CalendarRange, Inbox, Settings2,
+  CalendarDays, CalendarRange, Inbox, Settings2, Briefcase,
   type LucideIcon,
 } from "lucide-react";
 import { Logo } from "./Logo";
@@ -22,6 +22,7 @@ const ICONS = {
   calendar: CalendarRange,
   inbox: Inbox,
   settings: Settings2,
+  hiring: Briefcase,
 } satisfies Record<string, LucideIcon>;
 
 export type NavSection = {

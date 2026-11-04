@@ -24,6 +24,12 @@ import { ctxForUser } from "@/server/context";
 import { EXAMPLE_CUSTOM_ROLES, SYSTEM_ROLES } from "@/server/roles";
 import { adjustBalance, applyLeave, cancelLeave } from "@/server/services/leave";
 import { decide } from "@/server/services/approvals";
+import { Application, Requisition, Vacancy } from "@/server/models/Recruitment";
+import {
+  candidateRespond, createRequisition, createVacancy, makeOffer, moveStage, scheduleInterview, submitApplication, submitScorecard,
+} from "@/server/services/recruitment";
+import { writeFileSync } from "node:fs";
+import { demoCvPdf } from "./demoPdf";
 
 /** Kenyan defaults (Employment Act 2007). HR can change them in Leave settings. */
 const LEAVE_TYPES = [
@@ -198,7 +204,7 @@ async function main() {
   await connectDB();
   console.log("Wiping database…");
   await mongoose.connection.dropDatabase();
-  await Promise.all([User, Role, Department, Employee, AuditLog, EmploymentEvent, LeaveType, LeaveRequest, LeaveAdjustment, PublicHoliday].map((m) => m.syncIndexes()));
+  await Promise.all([User, Role, Department, Employee, AuditLog, EmploymentEvent, LeaveType, LeaveRequest, LeaveAdjustment, PublicHoliday, Requisition, Vacancy, Application].map((m) => m.syncIndexes()));
 
   // Roles
   const roles = await Role.insertMany([
@@ -372,6 +378,113 @@ async function main() {
   // An HR correction
   await adjustBalance(await ctxOf("grace"), { employeeId: String(ids.get("patrick")), typeCode: "ANNUAL", days: 1, reason: "Worked on Mashujaa Day to receive a delivery" }, on("2026-10-21"));
 
+  // ---- Recruitment: three hiring requests, two live adverts, a full pipeline -----
+  const approveReq = async (id: string, by: string, day: string) => decide(await ctxOf(by), "requisition", id, { decision: "approve", comment: "Budgeted in the 2027 plan." }, on(day));
+
+  // 1. Senior Frontend Engineer: requested by David, approved by Faith, advertised.
+  const feReq = await createRequisition(await ctxOf("david"), {
+    title: "Senior Frontend Engineer", departmentId: String(deptId("ENG")), grade: "G4", employmentType: "permanent", openings: 1,
+    justification: "Two client builds (a payments dashboard and a driver app) start in January. The team has one frontend engineer, Mercy, and she is at capacity.",
+  }, on("2026-10-01"));
+  await approveReq(feReq, "faith", "2026-10-02");
+  const feVac = await createVacancy(await ctxOf("faith"), feReq, {
+    summary: "Help us build the web apps that move goods and money across East Africa: dashboards for logistics teams, and payment flows used by thousands of small businesses.",
+    responsibilities: "- Build fast, accessible interfaces in React and Next.js\n- Turn designs into polished, tested features\n- Review code and mentor a junior engineer\n- Work with backend engineers on clean APIs",
+    requirements: "- 3+ years building production web apps with React\n- Strong TypeScript and CSS\n- You care about accessibility and performance\n- Bonus: M-Pesa or payments experience",
+    location: "Nairobi (hybrid, 3 days in office)",
+    closesOn: "2026-11-30",
+    showSalary: "on",
+    publish: "on",
+    criteria: "Technical skills\nProblem solving\nCommunication\nTeam fit",
+    questions: JSON.stringify([
+      { text: "Are you legally allowed to work in Kenya?", kind: "yesno", weight: 1, knockout: true, target: null, knockoutBelow: null },
+      { text: "Years of professional experience with React or Next.js", kind: "number", weight: 3, knockout: false, target: 5, knockoutBelow: 2 },
+      { text: "Have you shipped a production app used by real customers?", kind: "yesno", weight: 2, knockout: false, target: null, knockoutBelow: null },
+      { text: "Expected monthly salary (KES)", kind: "number", weight: 0, knockout: false, target: null, knockoutBelow: null },
+    ]),
+  });
+  const feSlug = (await Vacancy.findById(feVac).lean())!.slug;
+
+  type Candidate = { name: string; email: string; phone: string; location: string; answers: string[]; cover: string; cv: string[]; day: string };
+  const apply = async (slug: string, c: Candidate, n: number) => {
+    const fields: Record<string, string> = { name: c.name, email: c.email, phone: c.phone, location: c.location, coverLetter: c.cover, consent: "on" };
+    c.answers.forEach((a, i) => (fields[`answer_q${i + 1}`] = a));
+    const { token } = await submitApplication(slug, fields, { bytes: demoCvPdf(c.name, c.cv), name: `${c.name.replace(/\s+/g, "_")}_CV.pdf` }, `seed-${n}`, on(c.day));
+    const app = await Application.findOne({ "candidate.email": c.email }).sort({ createdAt: -1 }).lean();
+    return { id: String(app!._id), token, name: c.name };
+  };
+  const fe = [
+    { name: "Achieng Odhiambo", email: "achieng.odhiambo@example.com", phone: "0722 410 118", location: "Nairobi", answers: ["yes", "6", "yes", "180000"],
+      cover: "I lead the frontend for a Nairobi fintech's merchant dashboard (40k monthly users). I'd love to build tools for logistics teams next.",
+      cv: ["Frontend Lead, a Nairobi fintech (2022 - now)", "Software Engineer, an e-commerce startup (2019 - 2022)", "BSc Computer Science, JKUAT", "React, Next.js, TypeScript, accessibility, M-Pesa Daraja API"], day: "2026-10-06" },
+    { name: "Kipchirchir Langat", email: "kip.langat@example.com", phone: "0711 902 345", location: "Eldoret", answers: ["yes", "4", "yes", "150000"],
+      cover: "Four years of React at an agency, building sites for NGOs and banks. Happy to relocate to Nairobi.",
+      cv: ["Frontend Developer, a digital agency (2022 - now)", "Junior Developer, an NGO tech team (2021 - 2022)", "BSc IT, Moi University", "React, Vue, Tailwind, Figma"], day: "2026-10-08" },
+    { name: "Wanjiku Mwangi", email: "wanjiku.m@example.com", phone: "0733 118 272", location: "Thika", answers: ["yes", "3", "no", "130000"],
+      cover: "", cv: ["Web Developer, a hospital group (2023 - now)", "Diploma in Software Development", "React, Node.js, MongoDB"], day: "2026-10-09" },
+    { name: "Otieno Ouma", email: "otieno.ouma@example.com", phone: "0700 655 901", location: "Kisumu", answers: ["yes", "1", "yes", "90000"],
+      cover: "I'm early in my career but I learn fast. I built my county's events site.", cv: ["Freelance web developer (2025 - now)", "Certificate, Moringa School", "HTML, CSS, JavaScript, React"], day: "2026-10-10" },
+    { name: "Fatuma Hassan", email: "fatuma.hassan@example.com", phone: "+255 754 300 112", location: "Dar es Salaam", answers: ["no", "5", "yes", "200000"],
+      cover: "Senior engineer in Dar es Salaam, looking to move to Nairobi next year.", cv: ["Senior Frontend Engineer, a Tanzanian telco (2021 - now)", "BSc Computer Engineering, UDSM", "React, React Native, GraphQL"], day: "2026-10-11" },
+    { name: "Brian Mutai", email: "brian.mutai@example.com", phone: "0790 223 410", location: "Nakuru", answers: ["yes", "2", "no", "110000"],
+      cover: "", cv: ["Junior Developer, a SACCO (2024 - now)", "BSc Computer Science, Egerton University"], day: "2026-10-12" },
+  ];
+  const apps = [];
+  for (const [i, c] of fe.entries()) apps.push(await apply(feSlug, c, i));
+  const [achieng, kip, wanjiku, , , mutai] = apps;
+
+  const faith = await ctxOf("faith");
+  for (const a of [achieng, kip, wanjiku]) await moveStage(faith, a.id, { to: "shortlisted", note: "Strong screening answers" }, on("2026-10-14"));
+  await moveStage(faith, mutai.id, { to: "rejected", note: "Stronger candidates shortlisted" }, on("2026-10-14"));
+
+  // Achieng: interviewed, both panellists scored, offered, accepted → ready for HR to hire (the live demo)
+  const panel = [String(ids.get("david")), String(ids.get("collins"))];
+  await scheduleInterview(faith, achieng.id, { at: "2026-10-22T10:00", durationMins: 60, mode: "in_person", where: "Boardroom, 4th floor", panelIds: panel }, on("2026-10-15"));
+  const ivA = String((await Application.findById(achieng.id).lean())!.interviews[0]._id);
+  const score = async (who: string, appId: string, interviewId: string, s: number[], recommendation: string, notes: string) =>
+    submitScorecard(await ctxOf(who), appId, { interviewId, recommendation, notes, ...Object.fromEntries(s.map((x, i) => [`score_${i}`, String(x)])) }, on("2026-10-22"));
+  await score("david", achieng.id, ivA, [5, 4, 5, 4], "strong_yes", "Clear thinker. Walked us through an accessibility fix she shipped, with numbers. Would raise the bar.");
+  await score("collins", achieng.id, ivA, [4, 5, 4, 5], "yes", "Great pairing exercise; asked good questions about our API. Slightly light on testing.");
+  await makeOffer(faith, achieng.id, { basicSalary: "165000", expiresOn: "2026-11-09", startDate: "2026-12-01" }, on("2026-11-02"));
+  await candidateRespond(achieng.token, "accept", "seed", on("2026-11-03"));
+
+  // Kip: interview next week; Collins has scored, David hasn't (demo: hidden scorecards)
+  await scheduleInterview(faith, kip.id, { at: "2026-11-12T14:00", durationMins: 45, mode: "video", where: "Google Meet link sent by email", panelIds: panel }, on("2026-10-20"));
+  const ivK = String((await Application.findById(kip.id).lean())!.interviews[0]._id);
+  await score("collins", kip.id, ivK, [4, 3, 4, 4], "yes", "Solid React fundamentals. Needs to grow in system design, but coachable.");
+
+  // 2. Accounts Assistant: waiting for Talent & HR approval (shows in Faith's and Grace's inboxes)
+  await createRequisition(await ctxOf("esther"), {
+    title: "Accounts Assistant", departmentId: String(deptId("FIN")), grade: "G2", employmentType: "permanent", openings: 1,
+    justification: "Francis Njoroge retires in February 2027. We need overlap to hand over accounts payable before he leaves.",
+  }, on("2026-11-02"));
+
+  // 3. Sales Executive × 2: approved by Grace, advertised, two fresh applications
+  const salesReq = await createRequisition(await ctxOf("lucy"), {
+    title: "Sales Executive", departmentId: String(deptId("SAL")), grade: "G3", employmentType: "permanent", openings: 2,
+    justification: "New Mombasa and Kisumu territories from Q1 2027 need dedicated account owners.",
+  }, on("2026-10-20"));
+  await approveReq(salesReq, "grace", "2026-10-21");
+  const salesVac = await createVacancy(faith, salesReq, {
+    summary: "Own our relationships with logistics companies in a new region, from first meeting to signed contract.",
+    responsibilities: "- Find and win new business customers\n- Run product demos with our solutions team\n- Keep the CRM honest",
+    requirements: "- 2+ years in B2B sales\n- Comfortable presenting to company owners\n- Valid driving licence",
+    location: "Mombasa or Kisumu", closesOn: "2026-12-15", showSalary: "on", publish: "on", criteria: "Sales skill\nCommunication\nDrive",
+    questions: JSON.stringify([
+      { text: "Do you hold a valid Kenyan driving licence?", kind: "yesno", weight: 1, knockout: true, target: null, knockoutBelow: null },
+      { text: "Years of B2B sales experience", kind: "number", weight: 2, knockout: false, target: 4, knockoutBelow: 1 },
+    ]),
+  });
+  const salesSlug = (await Vacancy.findById(salesVac).lean())!.slug;
+  const sales = [
+    await apply(salesSlug, { name: "Halima Abdi", email: "halima.abdi@example.com", phone: "0722 900 431", location: "Mombasa", answers: ["yes", "5"], cover: "Five years selling freight services at the port.", cv: ["Key Account Manager, a freight forwarder (2021 - now)", "BCom Marketing, Technical University of Mombasa"], day: "2026-10-28" }, 10),
+    await apply(salesSlug, { name: "Ochieng Were", email: "ochieng.were@example.com", phone: "0714 200 876", location: "Kisumu", answers: ["yes", "3"], cover: "", cv: ["Sales Representative, an FMCG distributor (2023 - now)", "Diploma in Sales and Marketing"], day: "2026-10-30" }, 11),
+  ];
+
+  // Candidates' private status links, for demoing the candidate's side
+  const links = [...apps, ...sales].map((a) => `${a.name.padEnd(20)} http://localhost:3000/careers/status/${a.token}`).join("\n");
+  writeFileSync(".demo-links.txt", `Candidate status pages (demo data; regenerated by npm run seed)\n\n${links}\n`);
+
   const leaveCount = await LeaveRequest.countDocuments();
   const accounts = await User.countDocuments();
   await record(SYSTEM, {
@@ -379,7 +492,8 @@ async function main() {
     summary: `Loaded demo data: ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees (${events.length} career events), ${accounts} accounts`,
   });
 
-  console.log(`Seeded ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees, ${events.length} career events, ${accounts} accounts, ${leaveCount} leave requests.`);
+  console.log(`Seeded ${roles.length} roles, ${depts.length} departments, ${PEOPLE.length} employees, ${events.length} career events, ${accounts} accounts, ${leaveCount} leave requests, ${await Application.countDocuments()} job applications.`);
+  console.log("Candidate status links: .demo-links.txt");
   console.log("Every demo account's password is DEMO_PASSWORD from .env.local.");
   await mongoose.disconnect();
 }

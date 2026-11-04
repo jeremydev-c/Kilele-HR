@@ -29,6 +29,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    // CV uploads are capped at 2 MB in the app; leave room for the multipart overhead.
+    serverActions: { bodySizeLimit: "3mb" },
+  },
   // A stray package-lock.json in the parent Documents folder makes Turbopack
   // guess the wrong workspace root. Pin it to this project folder.
   turbopack: {

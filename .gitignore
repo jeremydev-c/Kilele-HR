@@ -9,6 +9,9 @@
 # local MongoDB data (npm run db)
 /.mongo-data/
 
+# candidate status links written by npm run seed
+/.demo-links.txt
+
 # misc
 .DS_Store
 *.pem

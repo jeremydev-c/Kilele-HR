@@ -86,6 +86,7 @@ export const WorkflowSchema = new Schema(
   { _id: false },
 );
 
+// Inherited by every model that embeds a workflow (as workflow.status + workflow.pendingWith.employeeId): the inbox query.
 WorkflowSchema.index({ status: 1, "pendingWith.employeeId": 1 });
 
 export type StepState = {

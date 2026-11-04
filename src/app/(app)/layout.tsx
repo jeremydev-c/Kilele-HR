@@ -42,6 +42,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ],
     },
     {
+      title: "Hiring",
+      items: [
+        ...only(
+          (["requisition:create", "recruitment:manage", "application:review", "interview:score"] as const).some((p) => has(ctx, p)),
+          { href: "/recruitment", label: "Recruitment", icon: "hiring" },
+        ),
+      ],
+    },
+    {
       title: "Administration",
       items: [
         ...only(has(ctx, "leave:manage"), { href: "/admin/leave-settings", label: "Leave settings", icon: "settings" }),

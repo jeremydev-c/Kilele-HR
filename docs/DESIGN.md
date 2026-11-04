@@ -157,6 +157,26 @@ stateDiagram-v2
 - **Balances are never stored:** entitlement + carry-over + HR adjustments − approved − pending, worked out on every read. Pending days are reserved, so you can't apply twice for the same days. Cancelling just changes the status, and the days come back automatically.
 - **Checked on apply:** overlapping requests, enough balance, eligibility (gender, months of service), no past dates (except sick leave's 7-day window), no crossing into a new year, and no weekend-only requests. Each application takes a per-employee lock inside a transaction, so two simultaneous requests can't both spend the same days.
 
+### Recruitment: from "we need someone" to an employee record
+```mermaid
+flowchart LR
+  R[Requisition<br/>manager asks] -->|approval engine:<br/>recruitment:manage@all| V[Job advert<br/>+ screening questions]
+  V --> C[/Public careers page/]
+  C --> A[Application<br/>+ CV PDF]
+  A --> S{Score 0–100<br/>+ knock-out flags}
+  S --> SL[Shortlisted] --> I[Interview<br/>panel scorecards] --> O[Offer<br/>inside grade band]
+  O -->|candidate accepts<br/>on their status page| H[Hire → employee record]
+```
+- **Headcount is approved before anything is advertised.** A requisition goes through the same approval engine as leave (one step, Talent & HR). Managers can only request hires for their own department, and nobody approves their own request. The approved requisition fixes the title, grade and department, so the advert can't quietly change them.
+- **The careers site is public**, so it's defended: rate-limited per IP, a hidden honeypot field for bots, PDF-only CVs (checked by the file's first bytes, not its name), one application per email per job, a 2 MB limit, and a consent statement under the Data Protection Act with a stated 12-month retention. It asks only for what recruitment needs: no ID numbers until someone is hired.
+- **Screening scores, but doesn't decide.** Each question has a weight. Yes/no and number answers become a 0–100 score (`lib/screening.ts`, pure and unit-tested). A missed must-have *flags* the candidate rather than auto-rejecting them, because rejecting is a human decision and edge cases matter. Weight 0 means "for information only" (e.g. salary expectation).
+- **The pipeline is a state machine.** Only defined moves are allowed (new → shortlisted → interview → offer → accepted → hired, plus rejected, withdrawn or declined), and every move is in the history and the audit trail. Rejecting needs a reason.
+- **Blind scorecards.** Interviewers can't see colleagues' scores until they've submitted their own (hiring manager included), so the first opinion heard doesn't anchor the rest. Scorecards can't be edited after submitting.
+- **Offers stay inside the grade's salary band** and need `recruitment:manage`.
+- **The candidate has a private status page.** The link holds a random token, and we store only its hash, so even a database leak can't rebuild the links. It shows their stage, interview time and place, and the offer to accept or decline, but never scores, notes or interviewers' names.
+- **Hire = no retyping.** HR adds what's collected on the first day (ID, KRA PIN…). Job, grade, department, manager, start date and the *offer's* salary carry over through the same `createEmployee()` used everywhere. An HR Officer without pay rights can still onboard, because the salary was already approved in the offer. The vacancy is marked filled when every opening is hired.
+- **CVs live in MongoDB (GridFS)**: no extra storage service, backed up with the database, and it works offline. Opening a CV is audited.
+
 ## 6. Modules
 
 | # | Module | What it does |
@@ -187,7 +207,10 @@ Entries are **hash-chained**, the same idea as the E-ELECTIONS ballot ledger: ea
 | `employmentEvents` | employeeId, type (hire/promotion/demotion/transfer/salary/separation), effectiveDate, from{}, to{}, requestId |
 | `leaveTypes` | code, name, daysPerYear, paid, gender rule, needs attachment |
 | `leaveRequests` | employeeId, type, start, end, days, reason, workflow{} |
-| `requisitions`, `vacancies`, `applications`, `interviews` | recruitment pipeline |
+| `requisitions` | number, title, department, grade, openings, justification, hiringManagerId, vacancyId, workflow{} |
+| `vacancies` | slug, requisitionId, advert text, closesOn, status, questions[] (weights, knock-outs), criteria[], hired / openings |
+| `applications` | number, vacancyId, candidate{}, answers[], score, knockouts[], cvFileId (GridFS), stage, history[], interviews[{panel[], scorecards[]}], offer{}, statusTokenHash, consentAt, employeeId |
+| `cvs.files` / `cvs.chunks` | CV PDFs (GridFS) |
 | `movementRequests` | employeeId, kind (promotion/demotion), from{}, to{}, justification, workflow{} |
 | `separations` | employeeId, kind, lastDay, workflow{}, clearance[], exitInterview{} |
 | `auditLogs` | seq (unique), at, actor, action, entity, entityId, changes[], reason, ip, prevHash, hash |
@@ -201,7 +224,7 @@ Weekly check-ins with Charles (proposed Fri 5pm). Each milestone ends with the a
 | Fri 6 Nov | **M0: Foundation** ✅ built 4 Nov | This design, login, roles, permission matrix, users, audit log with hash chain |
 | Fri 13 Nov | **M1: People** ✅ built 4 Nov | Employee directory, profiles, PII masking and reveal, encryption at rest, org chart, employment history |
 | Fri 20 Nov | **M2: Leave and approvals** ✅ built 4 Nov | Workflow engine, My Approvals inbox, leave types, balances, calendar |
-| Fri 27 Nov | **M3: Recruitment** | Requisition → careers page → apply → shortlist → interview → hire |
+| Fri 27 Nov | **M3: Recruitment** ✅ built 4–5 Nov | Requisition → careers page → apply → shortlist → interview → hire |
 | Fri 4 Dec | **M4: Movements and exits** | Promotions/demotions, separation with clearance and exit interview, dashboard, polish, demo script rehearsal |
 | Early Dec | **Demo day at Strathmore** | 10-minute live demo (`docs/DEMO.md`) |
 

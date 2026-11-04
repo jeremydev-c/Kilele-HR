@@ -65,7 +65,6 @@ const LeaveRequestSchema = new Schema(
 
 LeaveRequestSchema.index({ employeeId: 1, year: 1, typeCode: 1 });
 LeaveRequestSchema.index({ start: 1, end: 1 });
-LeaveRequestSchema.index({ "workflow.status": 1, "workflow.pendingWith.employeeId": 1 });
 
 export type LeaveRequestRecord = Omit<InferSchemaType<typeof LeaveRequestSchema>, "workflow"> & { workflow: WorkflowState };
 export const LeaveRequest =

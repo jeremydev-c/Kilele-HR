@@ -2,6 +2,7 @@ import { Types, type Model } from "mongoose";
 import { z } from "zod";
 import { connectDB } from "@/lib/db";
 import { LeaveRequest } from "../models/Leave";
+import { Requisition } from "../models/Recruitment";
 import { record } from "../audit";
 import { AppError, NotFoundError } from "../errors";
 import { applyDecision, decisionRight, waitingForFilter, type WorkflowState } from "../workflow";
@@ -37,7 +38,15 @@ const SOURCES: Source[] = [
     detail: (d) => `${d.number} · ${d.days} day${d.days === 1 ? "" : "s"} · ${d.start} to ${d.end}`,
     href: (d) => `/leave/${d._id}`,
   },
-  // M3: job requisitions. M4: promotions, separations.
+  {
+    type: "requisition",
+    label: "Hiring",
+    model: Requisition as AnyModel,
+    title: (d) => `${d.hiringManagerName}: hire ${d.openings} × ${d.title}`,
+    detail: (d) => `${d.number} · grade ${d.grade} · ${d.employmentType}`,
+    href: (d) => `/recruitment/requisitions/${d._id}`,
+  },
+  // M4: promotions, separations.
 ];
 
 export type InboxItem = {

@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireCtx } from "@/server/context";
 import { runAction, type ActionResult } from "@/server/errors";
-import { decide } from "@/server/services/approvals";
 import {
   addHoliday, adjustBalance, applyLeave, cancelLeave, removeHoliday, updateLeaveType,
 } from "@/server/services/leave";
@@ -27,19 +26,6 @@ export async function cancelLeaveAction(id: string, _prev: ActionResult, fd: For
     revalidatePath(`/leave/${id}`);
     revalidatePath("/leave");
     return { ok: "Leave cancelled. The days are back in the balance." };
-  });
-}
-
-export async function decideAction(type: string, id: string, _prev: ActionResult, fd: FormData): Promise<ActionResult> {
-  return runAction(async () => {
-    const status = await decide(await requireCtx(), type, id, form(fd));
-    revalidatePath(`/leave/${id}`);
-    revalidatePath("/approvals");
-    revalidatePath("/", "layout"); // the inbox badge in the menu
-    return {
-      ok: status === "approved" ? "Approved. The request is complete." : status === "rejected" ? "Rejected. The employee can see your reason." : "Approved. It has moved to the next step.",
-      href: "/approvals",
-    };
   });
 }
 

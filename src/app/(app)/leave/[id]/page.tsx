@@ -7,7 +7,8 @@ import { getLeave } from "@/server/services/leave";
 import { ActionForm, FieldError } from "@/components/ActionForm";
 import { Badge, PageHeader, fmtDate } from "@/components/ui";
 import { WorkflowBadge, WorkflowTimeline } from "@/components/workflow";
-import { cancelLeaveAction, decideAction } from "../actions";
+import { cancelLeaveAction } from "../actions";
+import { decideAction } from "../../approvals/actions";
 
 export const metadata: Metadata = { title: "Leave request" };
 

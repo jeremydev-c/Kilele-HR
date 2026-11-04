@@ -327,7 +327,12 @@ async function pathUnder(managerId: string | undefined, selfId: string | null, s
 // Writing
 // ---------------------------------------------------------------------------
 
-export async function createEmployee(ctx: Ctx, input: unknown) {
+/**
+ * `opts.approvedSalary`: hiring from an accepted offer. The salary was
+ * already set by someone with recruitment rights and accepted by the
+ * candidate, so whoever onboards them doesn't need pay rights to carry it over.
+ */
+export async function createEmployee(ctx: Ctx, input: unknown, opts: { approvedSalary?: number; source?: string } = {}) {
   authorize(ctx, "employee:create");
   const data = CreateInput.parse(input);
   await connectDB();
@@ -341,7 +346,7 @@ export async function createEmployee(ctx: Ctx, input: unknown) {
   if (data.basicSalary !== undefined && !has(ctx, "employee.pay:update")) {
     throw new ForbiddenError("You can't set salaries. Leave it blank and HR will use the grade's starting pay.");
   }
-  const basicSalary = data.basicSalary ?? grade.min;
+  const basicSalary = opts.approvedSalary ?? data.basicSalary ?? grade.min;
 
   const created = await withTransaction(async (session) => {
     const mgr = await pathUnder(data.managerId, null, session);
@@ -378,7 +383,7 @@ export async function createEmployee(ctx: Ctx, input: unknown) {
           employeeId: e._id,
           type: "hire",
           effectiveDate: data.hireDate,
-          summary: `Joined ${dept.name} as ${data.jobTitle}`,
+          summary: `Joined ${dept.name} as ${data.jobTitle}${opts.source ? `, hired through ${opts.source}` : ""}`,
           to: { jobTitle: data.jobTitle, grade: data.grade, departmentId: dept._id, departmentName: dept.name, managerName: mgr.managerName, basicSalary },
           actorName: ctx.name,
         },

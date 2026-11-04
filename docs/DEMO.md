@@ -120,6 +120,37 @@ Only `enc:v1:…` ciphertext. "If someone steals the database, they get gibberis
 
 ---
 
+## Check-in 4 (Fri 27 Nov): Recruitment, about 10 minutes
+
+Before you start: `npm run seed`, then open `.demo-links.txt` (each candidate's private status link).
+
+**Open (1 min):** "Hiring starts with an approved need and ends with an employee record. Nobody retypes the candidate's details."
+
+**1. The request (1 min).** Sign in as **Grace** → *Approvals*: Esther's request for an Accounts Assistant ("Francis retires in February"). Approve it. "Same approval engine as leave: I only registered requisitions in the inbox."
+
+**2. The public side (2 min).** Open http://localhost:3000/careers in a fresh window (no login). Open *Sales Executive* and apply with a test PDF. You land on your **private status page**. "The link is the key; we store only a hash of it. Candidates always know where they stand." Then mention the defences: rate limit, honeypot field, PDF checked by its bytes, one application per email, and a consent statement with a retention period (Data Protection Act).
+
+**3. Screening (2 min).** As Grace → *Recruitment* → *Senior Frontend Engineer*. Columns by stage, sorted by score. Point at **Fatuma** (score 83 but ⚠: "Allowed to work in Kenya? No") and **Otieno** (⚠: under 2 years). "Flagged, not auto-rejected. The machine sorts, a person decides." Open Fatuma: answers, CV (*Open CV* opens a real PDF; that view is audited).
+
+**4. Blind scorecards (2 min).** Sign in as **David** → *Recruitment* → *My interviews* → **Kipchirchir**. "1 colleague scorecard hidden until you submit yours." Submit a scorecard → now he sees Collins' scores and the averages. "If the boss speaks first, everyone agrees with the boss. This stops that." Try to submit again: refused, scorecards are final.
+
+**5. Offer → accept → hire (2 min).**
+- Open Achieng's status link from `.demo-links.txt`: *Offer accepted*, KES 165,000, starts 1 Dec. No scores or interviewer names on the candidate's side.
+- As **Grace** → Achieng's application → *Hire*: only first-day details (gender, ID, KRA PIN, date of birth). Submit → you land on her **employee profile**: Senior Frontend Engineer, G4, reports to David, KES 165,000, career history "hired through APP-2026-0001". The advert is now *filled*.
+- "Even Kevin, an HR Officer with no pay rights, can onboard her: the salary was approved in the offer, not typed by him."
+
+**Questions Charles might ask**
+
+| Question | Answer |
+|---|---|
+| Why not auto-reject knock-outs? | Edge cases: someone with a work permit in progress, or 1.5 years of brilliant experience. Auto-rejection silently loses them. Flagging keeps the speed and keeps a human accountable. |
+| How are CVs stored? | In MongoDB GridFS: nothing extra to run, backed up with the data, works offline. PDF only, because a PDF can't carry Word macros. Every view is audited. |
+| How does the candidate log in? | They don't. A long random link is their key (like a shared Google Doc). We store a SHA-256 of it, so a database leak can't recreate anyone's link. |
+| What stops spam? | Per-IP rate limit, a hidden honeypot field bots fill in, one application per email per job, and a size and type check on the CV. In production I'd add a CAPTCHA and move the rate limit to Redis or MongoDB. |
+| What happens to rejected candidates' data? | The consent text promises deletion after 12 months. The next step is a scheduled job that purges old applications and their CVs. |
+
+---
+
 ## Demo day (early December): outline, about 10 minutes
 
 To be filled in as the modules land. Planned story: "a year in the life of Kilele Group".

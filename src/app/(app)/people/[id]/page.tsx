@@ -14,6 +14,10 @@ export const metadata: Metadata = { title: "Employee" };
 
 function service(from: Date | string, to = new Date()) {
   const start = new Date(from);
+  if (start > to) {
+    const days = Math.ceil((start.getTime() - to.getTime()) / 86_400_000);
+    return `starts in ${days} day${days === 1 ? "" : "s"}`;
+  }
   let months = (to.getFullYear() - start.getFullYear()) * 12 + (to.getMonth() - start.getMonth());
   if (to.getDate() < start.getDate()) months--;
   const y = Math.floor(months / 12);
