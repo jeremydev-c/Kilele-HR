@@ -17,18 +17,18 @@
   --color-stone-900: #1d1d1f;
   --color-stone-950: #111113;
 
-  /* Kilele green: the one accent colour. */
-  --color-brand-50: #edf7f2;
-  --color-brand-100: #d3eee0;
-  --color-brand-200: #a9dcc1;
-  --color-brand-300: #74c29c;
-  --color-brand-400: #3ea676;
-  --color-brand-500: #23895c;
-  --color-brand-600: #1b734d;
-  --color-brand-700: #175f40;
-  --color-brand-800: #134c34;
-  --color-brand-900: #0e3726;
-  --color-brand-950: #072117;
+  /* Obsidian: the accent is ink. Black on white, with glitter where it counts. */
+  --color-brand-50: #f4f4f6;
+  --color-brand-100: #e8e8ec;
+  --color-brand-200: #d4d4da;
+  --color-brand-300: #a9a9b0;
+  --color-brand-400: #6e6e75;
+  --color-brand-500: #3a3a3e;
+  --color-brand-600: #1c1c1f;
+  --color-brand-700: #0d0d0f;
+  --color-brand-800: #050506;
+  --color-brand-900: #000000;
+  --color-brand-950: #000000;
 }
 
 @layer base {
@@ -37,7 +37,7 @@
     text-rendering: optimizeLegibility;
   }
   body {
-    @apply bg-stone-50 text-[15px] leading-relaxed text-stone-900 antialiased;
+    @apply bg-white text-[15px] leading-relaxed text-stone-900 antialiased;
   }
   ::selection {
     @apply bg-brand-100;
@@ -48,15 +48,33 @@
   h1,
   h2,
   h3 {
-    @apply tracking-tight text-stone-900;
+    @apply tracking-[-0.022em] text-stone-900;
   }
 }
 
 @utility btn {
   @apply inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[10px] px-4 text-sm font-medium whitespace-nowrap transition active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40;
 }
+/* Glossy black, with a glint that sweeps across on hover. */
 @utility btn-primary {
-  @apply btn bg-brand-600 text-white shadow-sm hover:bg-brand-700;
+  @apply btn relative overflow-hidden text-white;
+  background: linear-gradient(180deg, #3b3b3f 0%, #161618 50%, #000 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 1px 2px rgb(0 0 0 / 0.2), 0 8px 18px -10px rgb(0 0 0 / 0.55);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.28) 50%, transparent 65%);
+    transform: translateX(-130%);
+    transition: transform 0.75s ease;
+  }
+  &:hover::after {
+    transform: translateX(130%);
+  }
+}
+/* White pill for use on black. */
+@utility btn-light {
+  @apply btn bg-white text-stone-900 shadow-sm hover:bg-stone-100;
 }
 @utility btn-secondary {
   @apply btn bg-white text-stone-900 shadow-xs ring-1 ring-stone-300/80 ring-inset hover:bg-stone-50;
@@ -74,7 +92,7 @@
   @apply mb-1.5 block text-[13px] font-medium text-stone-600;
 }
 @utility card {
-  @apply rounded-2xl border border-stone-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)];
+  @apply rounded-[20px] border border-stone-200/70 bg-white text-stone-900 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_10px_30px_-18px_rgba(0,0,0,0.18)];
 }
 /* Named data-table: plain "table" is Tailwind's own display:table utility. */
 @utility data-table {
@@ -88,4 +106,69 @@
   & tbody tr:last-child td {
     @apply border-b-0;
   }
+}
+
+@layer components {
+  /* Black that glitters: a deep sheen with two layers of tiny stars, one of them twinkling. */
+  .glitter {
+    position: relative;
+    isolation: isolate;
+    color: #f5f5f7;
+    background:
+      radial-gradient(120% 70% at 0% 0%, rgb(255 255 255 / 0.11), transparent 55%),
+      radial-gradient(90% 60% at 100% 100%, rgb(190 195 215 / 0.09), transparent 60%),
+      #070708;
+  }
+  .glitter::before,
+  .glitter::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  .glitter::before {
+    opacity: 0.6;
+    background-image:
+      radial-gradient(1px 1px at 116px 133px, rgb(255 255 255 / 0.58), transparent 70%),
+      radial-gradient(1px 1px at 105px 120px, rgb(255 255 255 / 0.93), transparent 70%),
+      radial-gradient(1px 1px at 140px 97px, rgb(255 255 255 / 0.88), transparent 70%),
+      radial-gradient(1px 1px at 156px 18px, rgb(255 255 255 / 0.58), transparent 70%),
+      radial-gradient(1px 1px at 159px 37px, rgb(255 255 255 / 0.72), transparent 70%),
+      radial-gradient(2px 2px at 42px 12px, rgb(255 255 255 / 0.98), transparent 70%),
+      radial-gradient(2px 2px at 29px 105px, rgb(255 255 255 / 0.55), transparent 70%),
+      radial-gradient(2px 2px at 306px 241px, rgb(255 255 255 / 0.74), transparent 70%),
+      radial-gradient(1px 1px at 51px 371px, rgb(255 255 255 / 0.48), transparent 70%),
+      radial-gradient(1.5px 1.5px at 171px 127px, rgb(255 255 255 / 0.93), transparent 70%),
+      radial-gradient(1.5px 1.5px at 42px 310px, rgb(255 255 255 / 0.48), transparent 70%),
+      radial-gradient(1.5px 1.5px at 139px 124px, rgb(255 255 255 / 0.99), transparent 70%),
+      radial-gradient(1px 1px at 37px 61px, rgb(255 255 255 / 0.72), transparent 70%);
+    background-size: 237px 237px, 237px 237px, 237px 237px, 237px 237px, 237px 237px, 237px 237px, 237px 237px, 419px 419px, 419px 419px, 419px 419px, 419px 419px, 419px 419px, 419px 419px;
+  }
+  .glitter::after {
+    background-image:
+      radial-gradient(1.5px 1.5px at 122px 315px, rgb(255 255 255 / 0.99), transparent 70%),
+      radial-gradient(1.5px 1.5px at 86px 297px, rgb(255 255 255 / 0.92), transparent 70%),
+      radial-gradient(1px 1px at 86px 5px, rgb(255 255 255 / 0.52), transparent 70%),
+      radial-gradient(2px 2px at 93px 169px, rgb(255 255 255 / 0.96), transparent 70%),
+      radial-gradient(1px 1px at 140px 0px, rgb(255 255 255 / 0.60), transparent 70%),
+      radial-gradient(1px 1px at 471px 547px, rgb(255 255 255 / 0.76), transparent 70%),
+      radial-gradient(1px 1px at 343px 366px, rgb(255 255 255 / 0.56), transparent 70%),
+      radial-gradient(1px 1px at 501px 445px, rgb(255 255 255 / 0.62), transparent 70%),
+      radial-gradient(1px 1px at 93px 466px, rgb(255 255 255 / 0.77), transparent 70%);
+    background-size: 331px 331px, 331px 331px, 331px 331px, 331px 331px, 331px 331px, 557px 557px, 557px 557px, 557px 557px, 557px 557px;
+    animation: twinkle 3.2s ease-in-out infinite alternate;
+  }
+  .glitter :where(h1, h2, h3) {
+    color: inherit;
+  }
+}
+
+@keyframes twinkle {
+  from { opacity: 0.1; }
+  to { opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glitter::after { animation: none; opacity: 0.5; }
 }

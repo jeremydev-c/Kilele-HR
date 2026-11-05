@@ -66,9 +66,21 @@ export default async function HomePage() {
 
   return (
     <>
-      <header className="mb-8">
-        <p className="text-[13px] font-medium text-stone-500">{date}</p>
-        <h1 className="mt-0.5 text-[32px] leading-tight font-semibold">{greeting}, {ctx.name.split(" ")[0]}</h1>
+      <header className="glitter mb-10 overflow-hidden rounded-[28px] px-6 py-8 sm:px-10 sm:py-11">
+        <p className="text-[13px] font-medium text-white/55">{date}</p>
+        <h1 className="mt-1 text-[34px] leading-tight font-semibold sm:text-[44px]">{greeting}, {ctx.name.split(" ")[0]}</h1>
+        <p className="mt-2 text-[17px] text-white/65">
+          {tasks.length ? `${tasks.length} thing${tasks.length === 1 ? " needs" : "s need"} you today.` : "Nothing needs you today."}
+        </p>
+        {quick.length > 0 && (
+          <div className="mt-7 flex flex-wrap gap-2">
+            {quick.map((q) => (
+              <Link key={q.href} href={q.href} className="btn-light h-10 rounded-full px-5">
+                <q.icon className="size-4" /> {q.label}
+              </Link>
+            ))}
+          </div>
+        )}
       </header>
 
       <div className="grid gap-8 xl:grid-cols-[1.5fr_1fr]">
@@ -80,28 +92,18 @@ export default async function HomePage() {
                 tasks.map((t) => (
                   <ListRow key={t.href} href={t.href}>
                     <span className="flex items-center gap-3">
-                      <span className="flex size-8 items-center justify-center rounded-full bg-brand-50 text-brand-700"><t.icon className="size-4" /></span>
+                      <span className="flex size-8 items-center justify-center rounded-full bg-gradient-to-b from-stone-700 to-black text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"><t.icon className="size-4" /></span>
                       <span className="font-medium">{t.text}</span>
                     </span>
                   </ListRow>
                 ))
               ) : (
                 <p className="flex items-center gap-3 px-4 py-5 text-stone-500">
-                  <CheckCircle2 className="size-5 text-brand-600" /> You&apos;re all caught up.
+                  <CheckCircle2 className="size-5 text-emerald-600" /> You&apos;re all caught up.
                 </p>
               )}
             </div>
           </section>
-
-          {quick.length > 0 && (
-            <section className="flex flex-wrap gap-2">
-              {quick.map((q) => (
-                <Link key={q.href} href={q.href} className="btn-secondary h-10">
-                  <q.icon className="size-4 text-brand-700" /> {q.label}
-                </Link>
-              ))}
-            </section>
-          )}
 
           {org && (
             <section>
@@ -117,7 +119,7 @@ export default async function HomePage() {
                     ["Leaving", org.exits, "/separations"],
                   ].map(([label, n, href]) => (
                     <Link key={label as string} href={href as string} className="group">
-                      <dd className="text-2xl font-semibold tabular-nums group-hover:text-brand-700">{n}</dd>
+                      <dd className="text-[28px] font-semibold tracking-tight tabular-nums group-hover:text-stone-500">{n}</dd>
                       <dt className="text-xs text-stone-500">{label}</dt>
                     </Link>
                   ))}
@@ -127,7 +129,7 @@ export default async function HomePage() {
                     <li key={d.name} className="grid grid-cols-[8.5rem_1fr_2rem] items-center gap-3 text-sm">
                       <span className="truncate text-stone-600">{d.name}</span>
                       <span className="h-2 rounded-full bg-stone-100">
-                        <span className="block h-full rounded-full bg-brand-500" style={{ width: `${(d.n / org.departments[0].n) * 100}%` }} />
+                        <span className="block h-full rounded-full bg-gradient-to-r from-stone-500 to-black" style={{ width: `${(d.n / org.departments[0].n) * 100}%` }} />
                       </span>
                       <span className="text-right font-medium tabular-nums">{d.n}</span>
                     </li>
@@ -143,16 +145,16 @@ export default async function HomePage() {
           {(annual || away) && (
             <section className="grid grid-cols-2 gap-3">
               {annual && (
-                <Link href="/leave" className="card p-4 hover:border-brand-300">
-                  <p className="text-[13px] text-stone-500">Annual leave</p>
-                  <p className="mt-1 text-[28px] leading-none font-semibold tabular-nums">{annual.available}</p>
-                  <p className="mt-1 text-xs text-stone-500">days left</p>
+                <Link href="/leave" className="glitter rounded-[20px] p-4 shadow-[0_10px_30px_-14px_rgba(0,0,0,0.6)] transition hover:-translate-y-0.5">
+                  <p className="text-[13px] text-white/60">Annual leave</p>
+                  <p className="mt-1 text-[32px] leading-none font-semibold tabular-nums">{annual.available}</p>
+                  <p className="mt-1 text-xs text-white/60">days left</p>
                 </Link>
               )}
               {away && (
-                <Link href="/leave/calendar" className="card p-4 hover:border-brand-300">
+                <Link href="/leave/calendar" className="card p-4 transition hover:-translate-y-0.5">
                   <p className="flex items-center gap-1.5 text-[13px] text-stone-500"><Plane className="size-3.5" /> Away today</p>
-                  <p className="mt-1 text-[28px] leading-none font-semibold tabular-nums">{away.length}</p>
+                  <p className="mt-1 text-[32px] leading-none font-semibold tabular-nums">{away.length}</p>
                   <p className="mt-1 truncate text-xs text-stone-500">{away.map((a) => a.employeeName.split(" ")[0]).join(", ") || "Everyone's in"}</p>
                 </Link>
               )}

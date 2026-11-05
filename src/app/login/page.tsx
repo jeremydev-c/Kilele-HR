@@ -16,16 +16,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     : null;
 
   return (
-    <main className="flex min-h-screen flex-col items-center px-4 pt-[12vh] pb-10">
+    <main className="glitter flex min-h-screen flex-col items-center px-4 pt-[12vh] pb-10">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <Logo />
-          <h1 className="mt-8 text-[28px] font-semibold">Sign in</h1>
-          <p className="mt-1 text-stone-500">Use your Kilele work email.</p>
+          <Logo light />
+          <h1 className="mt-8 text-[34px] font-semibold">Sign in</h1>
+          <p className="mt-1 text-white/60">Use your Kilele work email.</p>
         </div>
         <LoginForm next={next ?? ""} demo={demo} />
-        <p className="mt-10 text-center text-sm text-stone-500">
-          Looking for a job? <Link href="/careers" className="text-brand-700 hover:underline">See open positions</Link>
+        <p className="mt-10 text-center text-sm text-white/55">
+          Looking for a job? <Link href="/careers" className="text-white underline-offset-4 hover:underline">See open positions</Link>
         </p>
       </div>
     </main>

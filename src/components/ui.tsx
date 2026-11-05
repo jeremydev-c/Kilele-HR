@@ -15,13 +15,13 @@ export function PageHeader({
   return (
     <header className="mb-7">
       {back && (
-        <Link href={back.href} className="-ml-1 mb-3 inline-flex items-center text-[15px] text-brand-700 hover:text-brand-800">
+        <Link href={back.href} className="-ml-1 mb-3 inline-flex items-center text-[15px] text-stone-500 hover:text-stone-900">
           <ChevronLeft className="size-5" strokeWidth={2.25} /> {back.label}
         </Link>
       )}
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
-          <h1 className="text-[28px] leading-tight font-semibold">{title}</h1>
+          <h1 className="text-[32px] leading-tight font-semibold">{title}</h1>
           {subtitle && <p className="mt-1 text-[15px] text-stone-500">{subtitle}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -32,7 +32,7 @@ export function PageHeader({
 
 const TONES = {
   gray: "bg-stone-100 text-stone-600",
-  green: "bg-brand-50 text-brand-700",
+  green: "bg-emerald-50 text-emerald-700",
   amber: "bg-amber-50 text-amber-700",
   red: "bg-red-50 text-red-700",
   blue: "bg-sky-50 text-sky-700",

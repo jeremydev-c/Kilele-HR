@@ -12,7 +12,7 @@ import { Empty, PageHeader } from "@/components/ui";
 export const metadata: Metadata = { title: "Leave calendar" };
 
 const TYPE_COLORS: Record<string, string> = {
-  ANNUAL: "bg-brand-500",
+  ANNUAL: "bg-stone-900",
   SICK: "bg-rose-400",
   MATERNITY: "bg-violet-500",
   PATERNITY: "bg-sky-500",

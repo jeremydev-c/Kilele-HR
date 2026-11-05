@@ -33,7 +33,7 @@ export function LoginForm({ next, demo }: { next: string; demo: Demo }) {
 
       {demo && (
         <div className="mt-8">
-          <p className="mb-2 px-1 text-[13px] font-medium text-stone-500">Try a demo account</p>
+          <p className="mb-2 px-1 text-[13px] font-medium text-white/55">Try a demo account</p>
           <ul className="card divide-y divide-stone-100 overflow-hidden">
             {demo.accounts.map((a) => (
               <li key={a.email}>

@@ -11,9 +11,9 @@ export default async function ChangePasswordPage() {
   const ctx = await requireCtx();
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
+    <main className="glitter flex min-h-screen items-center justify-center p-6">
       <div className="card w-full max-w-md p-6 sm:p-8">
-        <Logo className="text-brand-900" />
+        <Logo />
         <h1 className="mt-6 text-xl font-semibold">{ctx.mustChangePassword ? "Choose your own password" : "Change password"}</h1>
         <p className="mt-1 text-sm text-stone-500">
           {ctx.mustChangePassword

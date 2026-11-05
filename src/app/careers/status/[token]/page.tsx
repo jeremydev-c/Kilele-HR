@@ -51,7 +51,7 @@ export default async function StatusPage({ params, searchParams }: { params: Pro
           <ol className="mt-4 flex gap-1">
             {STEPS.map((st, i) => (
               <li key={st} className="flex-1">
-                <div className={`h-1.5 rounded-full ${i <= reached ? "bg-brand-500" : "bg-stone-200"}`} />
+                <div className={`h-1.5 rounded-full ${i <= reached ? "bg-stone-900" : "bg-stone-200"}`} />
                 <p className={`mt-1 text-xs ${i <= reached ? "text-brand-800" : "text-stone-400"}`}>{STEP_LABEL[st]}</p>
               </li>
             ))}

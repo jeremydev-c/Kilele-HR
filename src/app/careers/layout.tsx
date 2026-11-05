@@ -6,13 +6,13 @@ export const metadata = { title: { default: "Careers at Kilele Group", template:
 export default function CareersLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="bg-brand-900 text-white">
+      <header className="glitter">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
           <Link href="/careers" className="flex items-center gap-2">
-            <Logo label="Kilele Group" />
-            <span className="hidden text-sm text-brand-200 sm:inline">· Careers</span>
+            <Logo light label="Kilele Group" />
+            <span className="hidden text-sm text-white/55 sm:inline">· Careers</span>
           </Link>
-          <Link href="/login" className="text-sm text-brand-200 hover:text-white">Staff sign-in</Link>
+          <Link href="/login" className="text-sm text-white/60 hover:text-white">Staff sign-in</Link>
         </div>
       </header>
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8">{children}</main>
