@@ -59,15 +59,16 @@ test("approvals reach exactly the people the inbox shows, and the outcome reache
   assert.ok(!asked.includes(await emailOf("Daniel")), "never the person asking");
 
   // Esther approved her step in the demo story: Daniel heard it moved on to HR.
-  const told = await Email.findOne({ kind: "decision.next", entityId: String(leave._id) }).lean();
-  assert.equal(told?.to, await emailOf("Daniel"));
+  // (Each person also gets a copy at their personal email: look for the work one.)
+  const told = await Email.findOne({ kind: "decision.next", entityId: String(leave._id), to: await emailOf("Daniel") }).lean();
+  assert.ok(told, "Daniel heard it moved on");
   assert.match(told!.html, /Approved by Esther Mwangi, now with HR/);
 
   // And a fully approved request tells its requester.
   const done = (await LeaveRequest.findOne({ "workflow.status": "approved" }).lean())!;
-  const approved = await Email.findOne({ kind: "decision.approved", entityId: String(done._id) }).lean();
   const requester = await User.findById(done.workflow.requestedById).lean();
-  assert.equal(approved?.to, requester!.email);
+  const approved = await Email.findOne({ kind: "decision.approved", entityId: String(done._id), to: requester!.email }).lean();
+  assert.ok(approved, "the requester heard it was approved");
 });
 
 test("only people allowed to see emails can open the Emails page", async () => {
