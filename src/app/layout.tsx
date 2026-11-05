@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { StaleDeployGuard } from "@/components/StaleDeployGuard";
 
 export const metadata: Metadata = {
   title: { default: "Kilele HR", template: "%s · Kilele HR" },
@@ -10,7 +11,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen font-sans">{children}</body>
+      <body className="min-h-screen font-sans">
+        {children}
+        <StaleDeployGuard />
+      </body>
     </html>
   );
 }
