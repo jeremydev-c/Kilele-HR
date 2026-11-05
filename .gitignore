@@ -24,3 +24,8 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local AI tooling, never committed
+.claude/
+AGENTS.md
+CLAUDE.md
