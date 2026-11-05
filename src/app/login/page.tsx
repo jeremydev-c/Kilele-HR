@@ -19,7 +19,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main className="glitter flex min-h-screen flex-col items-center px-4 pt-[12vh] pb-10">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <Logo light />
+          <Link href="/" aria-label="Kilele Group home"><Logo light /></Link>
           <h1 className="mt-8 text-[34px] font-semibold">Sign in</h1>
           <p className="mt-1 text-white/60">Use your Kilele work email.</p>
         </div>

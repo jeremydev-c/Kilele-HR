@@ -9,11 +9,11 @@ import { SESSION_COOKIE } from "@/lib/session";
 export function proxy(req: NextRequest) {
   if (req.cookies.has(SESSION_COOKIE)) return NextResponse.next();
   const url = new URL("/login", req.url);
-  if (req.nextUrl.pathname !== "/") url.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
+  url.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
   return NextResponse.redirect(url);
 }
 
 export const config = {
-  // Everything except the login page, public careers pages, and static files.
-  matcher: ["/((?!login|careers|_next/static|_next/image|favicon.ico).*)"],
+  // Everything except the public home page ("/"), login, careers pages, and static files.
+  matcher: ["/((?!login|careers|_next/static|_next/image|favicon.ico).+)"],
 };

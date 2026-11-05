@@ -8,7 +8,7 @@ export default function CareersLayout({ children }: { children: React.ReactNode 
     <div className="flex min-h-screen flex-col">
       <header className="glitter">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <Link href="/careers" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <Logo light label="Kilele Group" />
             <span className="hidden text-sm text-white/55 sm:inline">· Careers</span>
           </Link>
