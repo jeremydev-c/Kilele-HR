@@ -65,6 +65,9 @@ export const PERMISSIONS = [
   { key: "separation:initiate", group: "Separation", label: "Start a resignation, retirement or termination", scoped: true },
   { key: "separation:approve", group: "Separation", label: "Approve separations", scoped: true },
   { key: "clearance:signoff", group: "Separation", label: "Sign off exit clearance for own department", scoped: false },
+
+  // Announcements
+  { key: "announcement:send", group: "Announcements", label: "Send announcements and meeting invites (by email too)", scoped: true },
 ] as const satisfies readonly PermissionDef[];
 
 export type Permission = (typeof PERMISSIONS)[number]["key"];

@@ -49,7 +49,7 @@ export function relatedHref(entity?: string | null, id?: string | null) {
   if (!entity || !id) return null;
   const path: Record<string, string> = {
     application: "/recruitment/applications/", leave: "/leave/", requisition: "/recruitment/requisitions/",
-    promotion: "/promotions/", separation: "/separations/", user: "/admin/users/",
+    promotion: "/promotions/", separation: "/separations/", user: "/admin/users/", announcement: "/announcements/",
   };
   return path[entity] ? path[entity] + id : null;
 }

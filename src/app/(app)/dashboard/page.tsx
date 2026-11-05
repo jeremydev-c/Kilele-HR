@@ -11,6 +11,7 @@ import { balancesFor, offToday } from "@/server/services/leave";
 import { hrOverview } from "@/server/services/dashboard";
 import { hiringSuggestions, myInterviews, readyToAdvertise } from "@/server/services/recruitment";
 import { listSeparations } from "@/server/services/separations";
+import { unreadAnnouncements } from "@/server/services/announcements";
 import { requireCtx } from "@/server/context";
 import { has } from "@/server/authz";
 import { connectDB } from "@/lib/db";
@@ -33,7 +34,7 @@ export default async function HomePage() {
   const { greeting, date } = today();
   const me = ctx.employee && has(ctx, "leave:apply") ? await Employee.findById(ctx.employee.id).lean() : null;
 
-  const [waiting, interviews, exits, myPending, away, org, balances, recent, toHire, toAdvertise] = await Promise.all([
+  const [waiting, interviews, exits, myPending, away, org, balances, recent, toHire, toAdvertise, news] = await Promise.all([
     inboxCount(ctx),
     myInterviews(ctx),
     listSeparations(ctx),
@@ -44,12 +45,14 @@ export default async function HomePage() {
     has(ctx, "audit:read") ? AuditLog.find().sort({ seq: -1 }).limit(5).lean() : null,
     hiringSuggestions(ctx),
     readyToAdvertise(ctx),
+    unreadAnnouncements(ctx),
   ]);
   const scorecards = interviews.filter((i) => i.needsScorecard).length;
   const annual = balances?.find((b) => b.code === "ANNUAL");
 
   // Things only this person can move forward, most urgent first.
   const tasks = [
+    news > 0 && { href: "/announcements", icon: Megaphone, text: `${news} new announcement${news === 1 ? "" : "s"}` },
     waiting > 0 && { href: "/approvals", icon: Inbox, text: `${waiting} request${waiting === 1 ? "" : "s"} waiting for your approval` },
     scorecards > 0 && { href: "/recruitment", icon: MessageSquareText, text: `${scorecards} interview scorecard${scorecards === 1 ? "" : "s"} to submit` },
     exits.clearanceTasks.length > 0 && { href: "/separations", icon: ClipboardCheck, text: `${exits.clearanceTasks.length} exit clearance item${exits.clearanceTasks.length === 1 ? "" : "s"} to sign` },

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireCtx } from "@/server/context";
 import { has } from "@/server/authz";
 import { inboxCount } from "@/server/services/approvals";
+import { unreadAnnouncements } from "@/server/services/announcements";
 import { Sidebar, type NavSection } from "@/components/Sidebar";
 import { logoutAction } from "../actions";
 
@@ -11,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // The menu only shows what this person can use. (The pages and actions
   // check again on the server: hiding a link is not security.)
-  const waiting = await inboxCount(ctx);
+  const [waiting, unread] = await Promise.all([inboxCount(ctx), unreadAnnouncements(ctx)]);
   const approver = (["leave:approve", "promotion:approve", "separation:approve", "recruitment:manage"] as const).some((p) => has(ctx, p));
   const leaveScopes = ctx.grants.get("leave:read");
   const seesOthersLeave = !!leaveScopes && [...leaveScopes].some((s) => s !== "own");
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items: [
         { href: "/dashboard", label: "Home", icon: "home" },
         ...only(approver || waiting > 0, { href: "/approvals", label: "Approvals", icon: "inbox", badge: waiting }),
+        ...only(!!ctx.employee || has(ctx, "announcement:send"), { href: "/announcements", label: "Announcements", icon: "megaphone", badge: unread }),
         ...only(!!ctx.employee && has(ctx, "leave:apply"), { href: "/leave", label: "My leave", icon: "leave", exact: true }),
         ...only(!!ctx.employee, { href: `/people/${ctx.employee?.id}`, label: "My profile", icon: "person" }),
       ],

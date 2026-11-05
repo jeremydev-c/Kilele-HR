@@ -56,3 +56,11 @@ test("the Resend key works under either name", () => {
   assert.equal(resendKey({ RESEND_API: "re_b" }), "re_b");
   assert.equal(resendKey({}), "");
 });
+
+test("an announcement keeps the sender's line breaks and escapes their words", () => {
+  const m = T.announcement({ name: "Mercy", from: "Grace Wanjiru", title: "Town hall", body: "Line one\nLine two\n\n<script>x</script>", meeting: { when: "Friday, 13 November 2026 at 15:00", minutes: 90, where: "Boardroom" }, link: "https://x/a/1" });
+  assert.equal(m.subject, "Meeting: Town hall, Friday, 13 November 2026 at 15:00");
+  assert.match(m.html, /Line one<br>Line two/);
+  assert.doesNotMatch(m.html, /<script>/);
+  assert.match(m.text, /Where: Boardroom/);
+});

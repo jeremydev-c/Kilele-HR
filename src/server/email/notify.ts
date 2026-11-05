@@ -253,3 +253,29 @@ export function onPasswordReset(u: { _id: unknown; email: string; name: string }
     ...T.passwordReset({ name: u.name, by: byName, link: `${appUrl()}/login` }),
   }).catch(quiet("password reset"));
 }
+
+/** An announcement or meeting: one email to each person it was sent to. */
+export function onAnnouncement(a: {
+  _id: unknown; kind: string; title: string; body: string; authorName: string;
+  meeting?: { at: Date; durationMins: number; where: string } | null; recipientIds: Types.ObjectId[];
+}) {
+  return (async () => {
+    const [users, people] = await Promise.all([
+      User.find({ employeeId: { $in: a.recipientIds }, status: "active" }).select("email name employeeId").lean<{ email: string; name: string; employeeId: Types.ObjectId }[]>(),
+      Employee.find({ _id: { $in: a.recipientIds } }).select("firstName lastName workEmail").lean(),
+    ]);
+    const link = `${appUrl()}/announcements/${a._id}`;
+    const meeting = a.meeting ? { when: nairobi.format(new Date(a.meeting.at)), minutes: a.meeting.durationMins, where: a.meeting.where } : undefined;
+    // Their login email if they have one, otherwise their work email.
+    const out = people.map((p): Outgoing => {
+      const u = users.find((x) => String(x.employeeId) === String(p._id));
+      const name = u?.name ?? `${p.firstName} ${p.lastName}`;
+      return {
+        to: u?.email ?? p.workEmail, toName: name, kind: a.kind === "meeting" ? "announcement.meeting" : "announcement.sent",
+        entity: "announcement", entityId: String(a._id),
+        ...T.announcement({ name, from: a.authorName, title: a.title, body: a.body, meeting, link }),
+      };
+    });
+    await sendAll(out);
+  })().catch(quiet("announcement"));
+}

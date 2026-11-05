@@ -19,6 +19,7 @@ export const SYSTEM_ROLES = [
       "requisition:create", "recruitment:manage", "application:review", "interview:score",
       "promotion:initiate@all", "promotion:approve@all",
       "separation:initiate@all", "separation:approve@all", "clearance:signoff",
+      "announcement:send@all",
     ],
   },
   {
@@ -31,6 +32,7 @@ export const SYSTEM_ROLES = [
       "leave:apply", "leave:read@all", "leave:approve@all",
       "application:review", "interview:score",
       "separation:initiate@all", "clearance:signoff",
+      "announcement:send@all",
     ],
   },
   {
@@ -47,6 +49,7 @@ export const SYSTEM_ROLES = [
       "requisition:create", "interview:score",
       "promotion:initiate@team", "separation:initiate@team",
       "clearance:signoff",
+      "announcement:send@team",
     ],
   },
   {

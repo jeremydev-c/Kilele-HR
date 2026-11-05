@@ -177,3 +177,16 @@ export function passwordReset(p: { name: string; by: string; link: string }) {
     note: "Didn't expect this? Tell HR straight away.",
   });
 }
+
+// ---------------------------------------------------------------- announcements
+
+export function announcement(p: { name: string; from: string; title: string; body: string; meeting?: { when: string; minutes: number; where: string }; link: string }) {
+  // The sender's own words, paragraph by paragraph, escaped.
+  const paragraphs = p.body.split(/\n{2,}/).map((para) => esc(para).replace(/\n/g, "<br>"));
+  return layout(p.meeting ? `Meeting: ${p.title}, ${p.meeting.when}` : p.title, {
+    heading: p.title,
+    lines: [`<span style="color:#6e6e73">From ${esc(p.from)}</span>`, ...paragraphs],
+    details: p.meeting ? [["When", `${p.meeting.when} (Nairobi time)`], ["Length", `${p.meeting.minutes} minutes`], ["Where", p.meeting.where]] : undefined,
+    button: { label: p.meeting ? "See the meeting" : "Open in Kilele HR", url: p.link },
+  });
+}

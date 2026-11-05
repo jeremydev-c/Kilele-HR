@@ -22,6 +22,8 @@ import { Counter } from "@/server/models/Counter";
 import { LeaveAdjustment, LeaveRequest, LeaveType, PublicHoliday } from "@/server/models/Leave";
 import { record, SYSTEM } from "@/server/audit";
 import { ctxForUser } from "@/server/context";
+import { sendAnnouncement } from "@/server/services/announcements";
+import { Announcement } from "@/server/models/Announcement";
 import { EXAMPLE_CUSTOM_ROLES, SYSTEM_ROLES } from "@/server/roles";
 import { adjustBalance, applyLeave, cancelLeave } from "@/server/services/leave";
 import { decide } from "@/server/services/approvals";
@@ -579,6 +581,28 @@ async function main() {
     employeeId: String(ids.get("francis")), kind: "retirement", lastDay: "2027-02-10",
     reason: "Mandatory retirement at 60. Francis has asked to help train his replacement in January.",
   }, on("2026-11-03"));
+
+  // Announcements: HR calls a town hall for everyone; David posts to his team. A few people have read them.
+  const backdate = (id: string, day: string, readers: string[]) =>
+    // Straight to the collection: Mongoose treats createdAt as unchangeable.
+    Announcement.collection.updateOne({ _id: new mongoose.Types.ObjectId(id) }, { $set: { createdAt: on(day), readBy: readers.map((k) => ids.get(k)!) } });
+  const townHall = await sendAnnouncement(await ctxOf("grace"), {
+    kind: "meeting", title: "Town hall: 2026 results and plans for 2027", audience: "everyone",
+    body: `Hi everyone,
+
+Please join us for our end-of-year town hall. Wanjiru will share how 2026 went, our plans for 2027, and the new Mombasa office.
+
+There will be time for questions, and lunch afterwards. If you're remote, the video link is in the invite.`,
+    date: d("2026-11-13"), time: "15:00", durationMins: 90, where: "Boardroom, 4th floor (or Google Meet)",
+  }, on("2026-11-03"));
+  await backdate(townHall, "2026-11-03", ["kevin", "faith", "david", "esther", "lucy"]);
+  const freeze = await sendAnnouncement(await ctxOf("david"), {
+    kind: "announcement", title: "Code freeze from 18 December", audience: "everyone",
+    body: `Team, we freeze production releases from 18 December to 5 January so nobody is fixing things over the holidays.
+
+Please get anything big merged by the 16th. Ian is on call for emergencies.`,
+  }, on("2026-11-02"));
+  await backdate(freeze, "2026-11-02", ["ian"]);
 
   const leaveCount = await LeaveRequest.countDocuments();
   const accounts = await User.countDocuments();
