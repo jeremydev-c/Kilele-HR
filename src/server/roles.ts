@@ -12,7 +12,7 @@ export const SYSTEM_ROLES = [
     name: "HR Manager",
     description: "All HR data including PII and pay. Gives the final HR approval.",
     grants: [
-      "user:read", "user:manage", "role:manage", "audit:read", "org:manage",
+      "user:read", "user:manage", "role:manage", "audit:read", "email:read", "org:manage",
       "employee:read@all", "employee:create", "employee:update@all",
       "employee.contact:read@all", "employee.pii:read@all", "employee.pay:read@all", "employee.pay:update",
       "leave:apply", "leave:read@all", "leave:approve@all", "leave:manage",

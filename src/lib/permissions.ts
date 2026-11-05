@@ -33,6 +33,7 @@ export const PERMISSIONS = [
   { key: "user:manage", group: "Access control", label: "Create, lock, disable accounts and assign roles", scoped: false },
   { key: "role:manage", group: "Access control", label: "Create and edit roles and their permissions", scoped: false },
   { key: "audit:read", group: "Access control", label: "View the audit trail", scoped: false },
+  { key: "email:read", group: "Access control", label: "View emails the system sent (they can contain pay and personal details)", scoped: false },
 
   // Organisation and employees
   { key: "org:manage", group: "Employees", label: "Manage departments and job grades", scoped: false },

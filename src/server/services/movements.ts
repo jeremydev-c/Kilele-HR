@@ -13,6 +13,7 @@ import { record, type Actor } from "../audit";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import { decisionRight, startWorkflow, subjectOf, WORKFLOW_SUBJECT_FIELDS, type WorkflowDef } from "../workflow";
 import type { Ctx } from "../context";
+import { notifyApprovers } from "../email/notify";
 
 type Stored = EmployeeRecord & { _id: Types.ObjectId };
 type MoveDoc = MovementRecord & { _id: Types.ObjectId };
@@ -108,6 +109,7 @@ export async function proposeMovement(ctx: Ctx, input: unknown, now = new Date()
     summary: `Proposed a ${kind} for ${doc.employeeName}: ${gradeLabel(e.grade)} → ${gradeLabel(data.grade)} (${doc.number})`,
     reason: data.justification,
   });
+  await notifyApprovers("promotion", doc._id);
   return String(doc._id);
 }
 

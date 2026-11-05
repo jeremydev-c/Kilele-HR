@@ -22,6 +22,11 @@ import { ctxForUser, type Ctx } from "../context";
 import { readCv, saveCv } from "../files";
 import { allow } from "../rateLimit";
 import { createEmployee } from "./employees";
+import { encrypt } from "@/lib/crypto";
+import { notifyApprovers, onApplied, onCandidateAnswer, onHired, onInterviewScheduled, onOffer, onStageChange } from "../email/notify";
+
+/** A saved application in the shape the email helpers read. */
+const asApp = (a: { toObject(): unknown }) => a.toObject() as Parameters<typeof onApplied>[0];
 
 type Stored = EmployeeRecord & { _id: Types.ObjectId };
 type ReqDoc = RequisitionRecord & { _id: Types.ObjectId };
@@ -105,6 +110,7 @@ export async function createRequisition(ctx: Ctx, input: unknown, now = new Date
     summary: `Requested ${data.openings} × ${data.title} for ${dept.name} (${id.number})${replaces ? `, replacing ${replaces.firstName} ${replaces.lastName}` : ""}`,
     reason: data.justification,
   });
+  await notifyApprovers("requisition", id._id);
   return String(id._id);
 }
 
@@ -460,6 +466,7 @@ export async function submitApplication(
     stage: "new",
     history: [{ stage: "new", at: now, byName: data.name, note: "Applied online" }],
     statusTokenHash: hashToken(token),
+    statusTokenEnc: encrypt(token),
     consentAt: now,
     ip,
   });
@@ -470,6 +477,7 @@ export async function submitApplication(
     entityId: String(app._id),
     summary: `Applied for ${v.title} (${number}), screening score ${score}${knockouts.length ? `, ${knockouts.length} minimum requirement(s) not met` : ""}`,
   });
+  await onApplied(asApp(app), v, token);
   return { token, number };
 }
 
@@ -530,6 +538,10 @@ export async function candidateRespond(token: string, action: "accept" | "declin
     entityId: String(a._id),
     summary: `${a.candidate.name} ${action === "withdraw" ? "withdrew their application" : `${action}ed the offer`} (${a.number})`,
   });
+  if (action !== "withdraw") {
+    const v = await Vacancy.findById(a.vacancyId).lean<VacDoc>();
+    if (v) await onCandidateAnswer(asApp(a), v, action === "accept");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -619,6 +631,7 @@ export async function moveStage(ctx: Ctx, id: string, input: unknown, now = new 
     summary: `${to === "rejected" ? "Rejected" : to === "shortlisted" ? "Shortlisted" : "Moved back to new"}: ${a.candidate.name} for ${v.title} (${a.number})`,
     reason: note || undefined,
   });
+  await onStageChange(asApp(a), v, to);
 }
 
 const nairobiTime = new Intl.DateTimeFormat("en-KE", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Nairobi" });
@@ -671,6 +684,7 @@ export async function scheduleInterview(ctx: Ctx, id: string, input: unknown, no
     entityId: id,
     summary: `Scheduled an interview with ${a.candidate.name} for ${v.title}; panel: ${panel.map((p) => p.name).join(", ")}`,
   });
+  await onInterviewScheduled(asApp(a), v);
 }
 
 const ScorecardInput = z.object({
@@ -737,6 +751,7 @@ export async function makeOffer(ctx: Ctx, id: string, input: unknown, now = new 
     summary: `Made an offer to ${a.candidate.name} for ${v.title}`,
     changes: [{ field: "basicSalary", to: "[redacted]" }],
   });
+  await onOffer(asApp(a), v);
 }
 
 /** Turn an accepted candidate into an employee: no retyping, and the offer's salary carries over. */
@@ -776,6 +791,7 @@ export async function hireCandidate(ctx: Ctx, id: string, input: Record<string, 
     entityId: id,
     summary: `Hired ${a.candidate.name} as ${v.title} from ${a.number}`,
   });
+  await onHired(asApp(a), v, employeeId);
   return employeeId;
 }
 

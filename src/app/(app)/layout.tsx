@@ -57,6 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         ...only(has(ctx, "user:read"), { href: "/admin/users", label: "Users", icon: "users" }),
         ...only(has(ctx, "role:manage"), { href: "/admin/roles", label: "Roles", icon: "shield" }),
         ...only(has(ctx, "leave:manage"), { href: "/admin/leave-settings", label: "Leave policy", icon: "settings" }),
+        ...only(has(ctx, "email:read"), { href: "/admin/emails", label: "Emails", icon: "mail" }),
         ...only(has(ctx, "audit:read"), { href: "/admin/audit", label: "Audit log", icon: "audit" }),
       ],
     },

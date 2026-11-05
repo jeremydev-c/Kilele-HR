@@ -11,6 +11,7 @@ import { record } from "../audit";
 import { AppError, NotFoundError } from "../errors";
 import { applyDecision, decisionRight, waitingForFilter, type WorkflowState } from "../workflow";
 import type { Ctx } from "../context";
+import { notifyDecision, type WorkflowType } from "../email/notify";
 
 /**
  * "My Approvals": one inbox and one decide() for every kind of request.
@@ -172,5 +173,6 @@ export async function decide(ctx: Ctx, type: string, id: string, input: unknown,
     summary: `${decision === "approve" ? "Approved" : "Rejected"} ${source.title(doc)} (${String(doc.number ?? id)}): ${outcome}`,
     reason: comment || undefined,
   });
+  await notifyDecision(type as WorkflowType, doc._id, ctx.name, comment || undefined);
   return wf.status;
 }

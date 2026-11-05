@@ -11,6 +11,7 @@ import { authorize, canGrant } from "../authz";
 import { record } from "../audit";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import type { Ctx } from "../context";
+import { onAccountCreated, onPasswordReset } from "../email/notify";
 
 /** 12 characters, no look-alikes (0/O, 1/l/I), always with letters and digits. */
 function temporaryPassword(): string {
@@ -148,6 +149,7 @@ export async function createUser(ctx: Ctx, input: unknown) {
     summary: `Created account for ${data.name} (${data.email})`,
     changes: [{ field: "roles", to: roleNames.join(", ") }],
   });
+  await onAccountCreated(user);
   return { id: String(user._id), password };
 }
 
@@ -231,6 +233,7 @@ export async function resetPassword(ctx: Ctx, id: string) {
   user.failedLogins = 0;
   await user.save();
   await record(ctx, { action: "user.password_reset", entity: "user", entityId: id, summary: `Reset the password of ${user.name}` });
+  await onPasswordReset(user, ctx.name);
   return password;
 }
 

@@ -14,6 +14,7 @@ import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import { cancelWorkflow, decisionRight, startWorkflow, subjectOf, WORKFLOW_SUBJECT_FIELDS, type WorkflowDef } from "../workflow";
 import { balancesFor } from "./leave";
 import type { Ctx } from "../context";
+import { notifyApprovers, onClearanceStarted } from "../email/notify";
 
 type Stored = EmployeeRecord & { _id: Types.ObjectId };
 type SepDoc = SeparationRecord & { _id: Types.ObjectId };
@@ -101,6 +102,7 @@ export async function startSeparation(ctx: Ctx, input: unknown, now = new Date()
       : `Started ${KIND_LABELS[data.kind].toLowerCase()} for ${doc.employeeName}, last day ${data.lastDay} (${doc.number})`,
     reason: data.reason,
   });
+  await notifyApprovers("separation", doc._id);
   return String(doc._id);
 }
 
@@ -133,6 +135,7 @@ export async function startClearance(id: unknown, now = new Date()) {
   if (own) items.push({ departmentId: own._id, departmentName: own.name, item: "Work and documents handed over" });
   s.clearance.push(...items);
   await s.save();
+  await onClearanceStarted(s._id);
   await completeIfDue(s._id, now);
 }
 

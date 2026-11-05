@@ -156,6 +156,8 @@ const ApplicationSchema = new Schema(
     },
     /** Candidate's private status link: we store only a hash of the token. */
     statusTokenHash: { type: String, required: true, unique: true },
+    /** The status link token, encrypted, so later emails can include the link again. */
+    statusTokenEnc: { type: String, default: null },
     consentAt: { type: Date, required: true },
     employeeId: { type: Schema.Types.ObjectId, ref: "Employee", default: null },
     ip: { type: String, default: null },

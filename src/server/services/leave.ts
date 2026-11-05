@@ -10,6 +10,7 @@ import { record } from "../audit";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import { cancelWorkflow, decisionRight, startWorkflow, subjectOf, type WorkflowDef } from "../workflow";
 import type { Ctx } from "../context";
+import { notifyApprovers } from "../email/notify";
 
 /** Line manager first, then HR (anyone with leave:approve at "all" scope). */
 export const LEAVE_WORKFLOW: WorkflowDef = {
@@ -213,6 +214,7 @@ export async function applyLeave(ctx: Ctx, input: unknown, now = new Date()) {
     entityId: String(leave._id),
     summary: `Applied for ${days} days of ${type.name.toLowerCase()} (${leave.number}), ${data.start} to ${data.end}`,
   });
+  await notifyApprovers("leave", leave._id);
   return String(leave._id);
 }
 
