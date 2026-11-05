@@ -21,6 +21,9 @@ const EmailSchema = new Schema(
     status: { type: String, enum: ["sent", "failed", "skipped", "saved"], required: true },
     reason: { type: String, default: "" },
     providerId: { type: String, default: null },
+    /** Set when someone pressed "Send again": the new attempt is its own entry, this one is done. */
+    retriedAt: { type: Date, default: null },
+    retriedByName: { type: String, default: null },
   },
   { timestamps: true },
 );

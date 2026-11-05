@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Mail, Search } from "lucide-react";
+import { Mail, Search, Send } from "lucide-react";
+import { ActionForm } from "@/components/ActionForm";
+import { resendUnsentAction } from "./actions";
 import { requireCtx } from "@/server/context";
 import { load, requirePermission } from "@/server/page";
-import { EMAIL_STATUSES, STATUS_TONE, listEmails } from "@/server/services/emails";
+import { EMAIL_STATUSES, STATUS_TONE, countUnsent, listEmails } from "@/server/services/emails";
 import { Badge, Empty, PageHeader, fmtDateTime } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Emails" };
@@ -12,11 +14,21 @@ export default async function EmailsPage({ searchParams }: { searchParams: Promi
   const ctx = await requireCtx();
   await requirePermission(ctx, "email:read");
   const sp = await searchParams;
-  const { emails, counts, sendingOn } = await load(listEmails(ctx, sp));
+  const [{ emails, counts, sendingOn }, unsent] = await Promise.all([load(listEmails(ctx, sp)), load(countUnsent(ctx))]);
 
   return (
     <>
-      <PageHeader title="Emails" subtitle="Every email Kilele HR wrote, and whether it went out." />
+      <PageHeader
+        title="Emails"
+        subtitle="Every email Kilele HR wrote, and whether it went out."
+        actions={
+          sendingOn && unsent > 0 && (
+            <ActionForm action={resendUnsentAction}>
+              <button className="btn-primary"><Send className="size-4" /> Send all unsent ({unsent})</button>
+            </ActionForm>
+          )
+        }
+      />
 
       {!sendingOn && (
         <p className="mb-5 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-900">
@@ -58,6 +70,7 @@ export default async function EmailsPage({ searchParams }: { searchParams: Promi
                   <td>
                     <Badge tone={STATUS_TONE[e.status as keyof typeof STATUS_TONE]}>{EMAIL_STATUSES[e.status as keyof typeof EMAIL_STATUSES]}</Badge>
                     {e.reason && <p className="mt-1 max-w-56 text-xs text-stone-500">{e.reason}</p>}
+                    {e.retriedAt && <p className="mt-1 text-xs text-stone-500">Sent again by {e.retriedByName}</p>}
                   </td>
                 </tr>
               ))}

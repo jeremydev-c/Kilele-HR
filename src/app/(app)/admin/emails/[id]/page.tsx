@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireCtx } from "@/server/context";
 import { load, requirePermission } from "@/server/page";
+import { Send } from "lucide-react";
+import { ActionForm } from "@/components/ActionForm";
+import { deliveryBlock } from "@/server/email/send";
 import { EMAIL_STATUSES, STATUS_TONE, getEmail, relatedHref } from "@/server/services/emails";
+import { resendEmailAction } from "../actions";
 import { Badge, PageHeader, fmtDateTime } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Email" };
@@ -11,7 +15,8 @@ export default async function EmailPage({ params }: { params: Promise<{ id: stri
   const ctx = await requireCtx();
   await requirePermission(ctx, "email:read");
   const e = await load(getEmail(ctx, (await params).id));
-  const related = relatedHref(e.entity, e.entityId);
+  const related = relatedHref(e.entityId ? e.entity : null, e.entityId);
+  const canResend = ["saved", "failed"].includes(e.status) && !e.retriedAt && !deliveryBlock(e.to);
 
   return (
     <>
@@ -34,6 +39,12 @@ export default async function EmailPage({ params }: { params: Promise<{ id: stri
             <Badge tone={STATUS_TONE[e.status as keyof typeof STATUS_TONE]}>{EMAIL_STATUSES[e.status as keyof typeof EMAIL_STATUSES]}</Badge>
             {e.reason && <p className="mt-1 text-stone-500">{e.reason}</p>}
           </div>
+          {e.retriedAt && <p className="text-stone-500">Sent again by {e.retriedByName}. The new attempt is the newest entry in the list.</p>}
+          {canResend && (
+            <ActionForm action={resendEmailAction.bind(null, e.id)}>
+              <button className="btn-primary w-full"><Send className="size-4" /> Send again</button>
+            </ActionForm>
+          )}
           {related && <Link href={related} className="btn-secondary w-full">Open what it&apos;s about</Link>}
         </aside>
       </div>

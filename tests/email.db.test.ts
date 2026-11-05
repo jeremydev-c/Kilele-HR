@@ -15,7 +15,7 @@ import { LeaveRequest } from "@/server/models/Leave";
 import { Application } from "@/server/models/Recruitment";
 import { ctxForUser, type Ctx } from "@/server/context";
 import { candidateStatus } from "@/server/services/recruitment";
-import { listEmails } from "@/server/services/emails";
+import { listEmails, resendEmail } from "@/server/services/emails";
 import { ForbiddenError } from "@/server/errors";
 
 const as = async (first: string): Promise<Ctx> => {
@@ -77,4 +77,32 @@ test("only people allowed to see emails can open the Emails page", async () => {
   // Peter is an external auditor: an account, no employee record.
   const peter = (await User.findOne({ name: "Peter Kamau" }).lean())!;
   await assert.rejects(listEmails(await ctxForUser(peter, "test"), {}), ForbiddenError, "the auditor can't read pay in offer emails");
+});
+
+test("Send again: once per email, never to demo addresses, HR only", async () => {
+  const base = { subject: "Test", html: "<p>Hi</p>", text: "Hi", kind: "test", status: "failed" as const, reason: "Resend said 403" };
+  const real = await Email.create({ ...base, to: "someone.real@gmail.com" });
+  const demo = await Email.create({ ...base, to: "grace.wanjiru@kilele.co.ke" });
+  const grace = await as("Grace");
+
+  // The tests never send (EMAIL_DELIVERY is "off"); here they also control whether a key "exists".
+  const saved = { a: process.env.RESEND_API, b: process.env.RESEND_API_KEY };
+  delete process.env.RESEND_API;
+  delete process.env.RESEND_API_KEY;
+  try {
+    // No key, no sending: say so rather than pretend.
+    await assert.rejects(resendEmail(grace, String(real._id)), /isn't switched on/);
+    process.env.RESEND_API = "re_test";
+    assert.equal(await resendEmail(grace, String(real._id)), "saved");
+    const again = (await Email.findById(real._id).lean())!;
+    assert.ok(again.retriedAt, "the original is marked as retried");
+    assert.equal(again.retriedByName, "Grace Wanjiru");
+    assert.equal(await Email.countDocuments({ to: "someone.real@gmail.com" }), 2, "the new attempt is its own entry");
+    await assert.rejects(resendEmail(grace, String(real._id)), /already sent again/);
+    await assert.rejects(resendEmail(grace, String(demo._id)), /demo address/);
+    await assert.rejects(resendEmail(await as("David"), String(real._id)), ForbiddenError);
+  } finally {
+    if (saved.a === undefined) delete process.env.RESEND_API; else process.env.RESEND_API = saved.a;
+    if (saved.b === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = saved.b;
+  }
 });
