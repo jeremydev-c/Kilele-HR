@@ -13,7 +13,7 @@ import { Employee } from "@/server/models/Employee";
 import { Application, Requisition, Vacancy } from "@/server/models/Recruitment";
 import { ctxForUser, type Ctx } from "@/server/context";
 import {
-  advertDraft, candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, openVacancies, publicVacancy, readyToAdvertise, scheduleInterview,
+  advertDraft, candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, openVacancies, publicVacancy, readyToAdvertise, scheduleInterview, endedVacancy,
   submitApplication, submitScorecard,
 } from "@/server/services/recruitment";
 import { AppError, ForbiddenError, NotFoundError } from "@/server/errors";
@@ -121,6 +121,13 @@ test("hire: the accepted candidate becomes an employee, nothing retyped", async 
   // Filled means gone from the public site at once: not listed, no job page, no new applications.
   assert.ok(!(await openVacancies(NOW)).some((v) => v.slug === slug), "off the website's job list");
   await assert.rejects(publicVacancy(slug, NOW), NotFoundError, "its job page is gone");
+  // …but an old link explains kindly and points to what's still open.
+  const ended = (await endedVacancy(slug, NOW))!;
+  assert.equal(ended.reason, "filled");
+  assert.ok(ended.openCount >= 1 && !ended.otherJobs.some((j) => j.slug === slug), "other open jobs, not this one");
+  assert.equal(await endedVacancy("no-such-job", NOW), null, "a made-up link is still not found");
+  const open = (await openVacancies(NOW))[0];
+  assert.equal(await endedVacancy(open.slug, NOW), null, "an open job isn't 'ended'");
   await assert.rejects(hireCandidate(await as("Kevin"), id, {}), /accepted an offer/, "can't hire twice");
 });
 

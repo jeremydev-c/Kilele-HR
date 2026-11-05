@@ -387,6 +387,27 @@ export async function openVacancies(now = new Date()) {
     .lean<VacDoc[]>();
 }
 
+/**
+ * A job that used to be on the careers site and isn't any more: filled, closed by
+ * HR, or past its closing date. Lets an old link say so kindly instead of
+ * "not found". Drafts never existed publicly, so they stay not found.
+ */
+export async function endedVacancy(slug: string, now = new Date()) {
+  await connectDB();
+  const v = await Vacancy.findOne({ slug, status: { $ne: "draft" } }).select("title departmentName status closesOn").lean<VacDoc>();
+  if (!v) return null;
+  const stillOpen = v.status === "open" && v.closesOn >= today(now);
+  if (stillOpen) return null;
+  const others = await openVacancies(now);
+  return {
+    title: v.title,
+    departmentName: v.departmentName,
+    reason: v.status === "filled" ? ("filled" as const) : ("closed" as const),
+    otherJobs: others.slice(0, 3).map((j) => ({ slug: j.slug, title: j.title, departmentName: j.departmentName })),
+    openCount: others.length,
+  };
+}
+
 export async function publicVacancy(slug: string, now = new Date()) {
   await connectDB();
   const v = await Vacancy.findOne({ slug, status: "open", closesOn: { $gte: today(now) } }).lean<VacDoc>();
