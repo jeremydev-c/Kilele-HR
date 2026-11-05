@@ -224,8 +224,16 @@ async function main() {
   if (!password) throw new Error("Set DEMO_PASSWORD in .env.local first.");
 
   await connectDB();
-  console.log("Wiping database…");
-  await mongoose.connection.dropDatabase();
+  console.log(`Wiping database "${mongoose.connection.name}"…`);
+  try {
+    await mongoose.connection.dropDatabase();
+  } catch {
+    // Shared Atlas users often may not drop a whole database: empty it collection by collection instead.
+    const db = mongoose.connection.db!;
+    for (const c of await db.listCollections({}, { nameOnly: true }).toArray()) {
+      if (!c.name.startsWith("system.")) await db.dropCollection(c.name);
+    }
+  }
   await Promise.all([User, Role, Department, Employee, AuditLog, EmploymentEvent, LeaveType, LeaveRequest, LeaveAdjustment, PublicHoliday, Requisition, Vacancy, Application, Movement, Separation].map((m) => m.syncIndexes()));
 
   // Roles
