@@ -14,6 +14,6 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Everything except the public home page ("/"), login, careers pages, and static files.
-  matcher: ["/((?!login|careers|_next/static|_next/image|favicon.ico).+)"],
+  // Everything except the public home page ("/"), login, careers pages, the cron job (it checks its own secret), and static files.
+  matcher: ["/((?!login|careers|api/cron|_next/static|_next/image|favicon.ico).+)"],
 };
