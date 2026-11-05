@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ExternalLink, Lightbulb, Plus } from "lucide-react";
+import { ExternalLink, Lightbulb, Megaphone, Plus } from "lucide-react";
 import { requireCtx } from "@/server/context";
 import { has } from "@/server/authz";
-import { hiringSuggestions, listRequisitions, listVacancies, myInterviews } from "@/server/services/recruitment";
+import { hiringSuggestions, listRequisitions, listVacancies, myInterviews, readyToAdvertise } from "@/server/services/recruitment";
 import { Badge, Empty, PageHeader, fmtDate, fmtDateTime } from "@/components/ui";
 import { WorkflowBadge } from "@/components/workflow";
 
@@ -15,11 +15,12 @@ export default async function RecruitmentPage() {
   const ctx = await requireCtx();
   const recruiter = has(ctx, "recruitment:manage") || has(ctx, "application:review");
   const canRequest = has(ctx, "requisition:create") && !!ctx.employee;
-  const [interviews, vacancies, requisitions, toHire] = await Promise.all([
+  const [interviews, vacancies, requisitions, toHire, toAdvertise] = await Promise.all([
     myInterviews(ctx),
     listVacancies(ctx).catch(() => []),
     canRequest || recruiter ? listRequisitions(ctx) : Promise.resolve([]),
     hiringSuggestions(ctx),
+    readyToAdvertise(ctx),
   ]);
   const todo = interviews.filter((i) => i.needsScorecard);
 
@@ -34,6 +35,25 @@ export default async function RecruitmentPage() {
           </>
         }
       />
+
+      {toAdvertise.length > 0 && (
+        <section className="card mb-6 overflow-hidden ring-2 ring-brand-500/25">
+          <h2 className="flex items-center gap-2 border-b border-stone-100 px-4 py-3 font-semibold">
+            <Megaphone className="size-4 text-brand-700" /> Ready to advertise
+          </h2>
+          <ul className="divide-y divide-stone-100">
+            {toAdvertise.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <span>
+                  <span className="block font-medium">{r.openings} × {r.title}</span>
+                  <span className="block text-sm text-stone-500">Approved · requested by {r.hiringManagerName}</span>
+                </span>
+                <Link href={`/recruitment/vacancies/new?req=${r.id}`} className="btn-primary">Write advert</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {toHire.length > 0 && (
         <Link href="/recruitment/requisitions/new" className="card mb-6 flex items-center gap-3 p-4 hover:border-amber-300">

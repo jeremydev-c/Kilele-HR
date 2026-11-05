@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/authz.test.ts tests/leaveDays.test.ts tests/screening.test.ts",
+    "test": "tsx --test tests/authz.test.ts tests/leaveDays.test.ts tests/screening.test.ts tests/advertTemplates.test.ts",
     "test:db": "tsx --env-file=.env.local --test --test-concurrency=1 tests/*.db.test.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:test": "tsx --env-file=.env.local scripts/seed.ts --today=2026-11-04"

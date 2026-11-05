@@ -4,6 +4,7 @@ import { z } from "zod";
 import { connectDB, withTransaction } from "@/lib/db";
 import { GRADES } from "@/lib/grades";
 import { scoreAnswers, type Question } from "@/lib/screening";
+import { advertFromTemplate } from "@/lib/advertTemplates";
 import { toISODate } from "@/lib/leaveDays";
 import { Employee, type EmployeeRecord } from "../models/Employee";
 import { Department } from "../models/Department";
@@ -276,6 +277,47 @@ export async function createVacancy(ctx: Ctx, requisitionId: string, input: unkn
     summary: `${data.publish ? "Published" : "Drafted"} the advert "${req.title}" (closes ${data.closesOn})`,
   });
   return String(vacancy._id);
+}
+
+/**
+ * A ready-made advert for an approved requisition, so HR only edits and publishes.
+ *   1. We've advertised this job title before: reuse that advert (newest first, same department preferred).
+ *   2. Otherwise: the department + grade template (lib/advertTemplates.ts).
+ */
+export async function advertDraft(ctx: Ctx, requisitionId: string, now = new Date()) {
+  authorize(ctx, "recruitment:manage");
+  if (!Types.ObjectId.isValid(requisitionId)) throw new NotFoundError("Requisition");
+  await connectDB();
+  const req = await Requisition.findById(requisitionId).lean<ReqDoc>();
+  if (!req) throw new NotFoundError("Requisition");
+  const dept = await Department.findById(req.departmentId).lean();
+  const closesOn = toISODate(new Date(now.getTime() + 21 * 86_400_000));
+  const titleRx = new RegExp(`^${req.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
+  const previous = await Vacancy.find({ title: titleRx, requisitionId: { $ne: req._id } }).sort({ createdAt: -1 }).lean<VacDoc[]>();
+  const best = previous.find((v) => String(v.departmentId) === String(req.departmentId)) ?? previous[0];
+
+  if (best) {
+    return {
+      source: `Copied from the last ${best.title} advert (${new Date(best.createdAt!).getFullYear()}). Edit anything that's changed.`,
+      summary: best.summary, responsibilities: best.responsibilities, requirements: best.requirements,
+      location: best.location, closesOn, showSalary: best.showSalary,
+      questions: best.questions.map((q) => ({ text: q.text, kind: q.kind as "yesno" | "number", weight: q.weight, knockout: q.knockout, target: q.target ?? null, knockoutBelow: q.knockoutBelow ?? null })),
+      criteria: best.criteria,
+    };
+  }
+  const t = advertFromTemplate({ title: req.title, deptCode: dept?.code ?? "", deptName: dept?.name ?? "", grade: req.grade, justification: req.justification });
+  return {
+    source: `Pre-filled for a ${dept?.name ?? ""} role at grade ${req.grade}. Edit anything, then publish.`,
+    ...t, location: "Nairobi", closesOn, showSalary: true,
+  };
+}
+
+/** Approved hires with no advert yet: HR's "to do" list. */
+export async function readyToAdvertise(ctx: Ctx) {
+  if (!has(ctx, "recruitment:manage")) return [];
+  await connectDB();
+  const reqs = await Requisition.find({ "workflow.status": "approved", vacancyId: null }).sort({ "workflow.closedAt": 1 }).lean<ReqDoc[]>();
+  return reqs.map((r) => ({ id: String(r._id), title: r.title, openings: r.openings, number: r.number, hiringManagerName: r.hiringManagerName }));
 }
 
 export async function setVacancyStatus(ctx: Ctx, id: string, status: "open" | "closed") {

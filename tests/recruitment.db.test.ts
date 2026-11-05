@@ -9,10 +9,11 @@ import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import { User } from "@/server/models/User";
 import { Employee } from "@/server/models/Employee";
-import { Application, Vacancy } from "@/server/models/Recruitment";
+import { Application, Requisition, Vacancy } from "@/server/models/Recruitment";
 import { ctxForUser, type Ctx } from "@/server/context";
 import {
-  candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, submitApplication, submitScorecard,
+  advertDraft, candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, readyToAdvertise,
+  submitApplication, submitScorecard,
 } from "@/server/services/recruitment";
 import { AppError, ForbiddenError } from "@/server/errors";
 import { decide } from "@/server/services/approvals";
@@ -137,4 +138,29 @@ test("hiring suggestions: leavers in your area, retirements only with PII access
   // Declined means "we won't replace": it still doesn't come back.
   await decide(await as("Grace"), "requisition", replacement, { decision: "reject", comment: "Logistics work moves to the new partner." }, NOW);
   assert.ok(!(await names("Joseph")).includes("Patrick Mwenda"), "not suggested again after a decline");
+});
+
+test("approved hires are ready to advertise, with the advert pre-filled", async () => {
+  // A brand-new job (no earlier advert): built from the Finance template.
+  const accounts = (await Requisition.findOne({ title: "Accounts Assistant" }).lean())!;
+  await decide(await as("Grace"), "requisition", String(accounts._id), { decision: "approve" }, NOW);
+  const faith = await as("Faith");
+  assert.ok((await readyToAdvertise(faith)).some((r) => r.title === "Accounts Assistant"));
+  const fresh = await advertDraft(faith, String(accounts._id), NOW);
+  assert.match(fresh.source, /Pre-filled for a Finance role/);
+  assert.match(fresh.summary, /entry-level Accounts Assistant/);
+
+  // A job we've advertised before: the last advert is copied, questions and all.
+  const repeat = await createRequisition(await as("Lucy"), {
+    title: "Sales Executive", departmentId: String((await Employee.findOne({ firstName: "Lucy" }).lean())!.departmentId),
+    grade: "G3", employmentType: "permanent", openings: 1, justification: "A third territory opens in Nakuru next quarter.",
+  }, NOW);
+  await decide(await as("Grace"), "requisition", repeat, { decision: "approve" }, NOW);
+  const copied = await advertDraft(faith, repeat, NOW);
+  assert.match(copied.source, /Copied from the last Sales Executive advert/);
+  assert.ok(copied.questions.some((q) => q.text.includes("driving licence")));
+  assert.equal(copied.closesOn > "2026-11-04", true, "a fresh closing date, not the old one");
+
+  // Recruiters only: a line manager can't open the draft.
+  await assert.rejects(advertDraft(await as("David"), repeat, NOW), ForbiddenError);
 });

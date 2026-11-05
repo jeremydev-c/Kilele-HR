@@ -7,47 +7,55 @@ import { createVacancyAction } from "../../actions";
 
 type Q = { text: string; kind: "yesno" | "number"; weight: number; knockout: boolean; target: number | null; knockoutBelow: number | null };
 
-const STARTERS: Q[] = [
-  { text: "Are you legally allowed to work in Kenya?", kind: "yesno", weight: 1, knockout: true, target: null, knockoutBelow: null },
-  { text: "Years of relevant work experience", kind: "number", weight: 2, knockout: false, target: 5, knockoutBelow: null },
-];
+export type AdvertDraft = {
+  source: string;
+  summary: string;
+  responsibilities: string;
+  requirements: string;
+  location: string;
+  closesOn: string;
+  showSalary: boolean;
+  questions: Q[];
+  criteria: string[];
+};
 
-/** The advert, plus screening questions that score each application automatically. */
-export function VacancyForm({ requisitionId, closesDefault }: { requisitionId: string; closesDefault: string }) {
-  const [questions, setQuestions] = useState<Q[]>(STARTERS);
+/** The advert, pre-filled from the last advert for this job or a template, plus screening questions. */
+export function VacancyForm({ requisitionId, draft }: { requisitionId: string; draft: AdvertDraft }) {
+  const [questions, setQuestions] = useState<Q[]>(draft.questions);
   const update = (i: number, patch: Partial<Q>) => setQuestions((qs) => qs.map((q, j) => (j === i ? { ...q, ...patch } : q)));
 
   return (
     <ActionForm action={createVacancyAction.bind(null, requisitionId)} className="space-y-6">
+      <p className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-900">{draft.source}</p>
       <section className="card space-y-4 p-6">
         <h2 className="font-semibold">The advert</h2>
         <div>
           <label className="label" htmlFor="summary">Summary</label>
-          <textarea id="summary" name="summary" rows={3} required className="input" placeholder="What the role is and why it matters" />
+          <textarea id="summary" name="summary" rows={4} required className="input" defaultValue={draft.summary} />
           <FieldError name="summary" />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="label" htmlFor="responsibilities">What you&apos;ll do <span className="font-normal text-stone-400">(one per line, start with -)</span></label>
-            <textarea id="responsibilities" name="responsibilities" rows={5} className="input" />
+            <textarea id="responsibilities" name="responsibilities" rows={5} className="input" defaultValue={draft.responsibilities} />
           </div>
           <div>
             <label className="label" htmlFor="requirements">What we&apos;re looking for</label>
-            <textarea id="requirements" name="requirements" rows={5} className="input" />
+            <textarea id="requirements" name="requirements" rows={5} className="input" defaultValue={draft.requirements} />
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <label className="label" htmlFor="location">Location</label>
-            <input id="location" name="location" defaultValue="Nairobi (hybrid)" className="input" />
+            <input id="location" name="location" defaultValue={draft.location} className="input" />
           </div>
           <div>
             <label className="label" htmlFor="closesOn">Applications close</label>
-            <input id="closesOn" name="closesOn" type="date" defaultValue={closesDefault} required className="input" />
+            <input id="closesOn" name="closesOn" type="date" defaultValue={draft.closesOn} required className="input" />
             <FieldError name="closesOn" />
           </div>
           <div className="space-y-2 self-end text-sm">
-            <label className="flex items-center gap-2"><input type="checkbox" name="showSalary" defaultChecked className="accent-brand-600" /> Show the salary band</label>
+            <label className="flex items-center gap-2"><input type="checkbox" name="showSalary" defaultChecked={draft.showSalary} className="accent-brand-600" /> Show the salary band</label>
             <label className="flex items-center gap-2"><input type="checkbox" name="publish" defaultChecked className="accent-brand-600" /> Publish now</label>
           </div>
         </div>
@@ -106,11 +114,11 @@ export function VacancyForm({ requisitionId, closesDefault }: { requisitionId: s
 
       <section className="card space-y-2 p-6">
         <label className="label" htmlFor="criteria">Interview scorecard criteria <span className="font-normal text-stone-400">(one per line; each scored 1–5)</span></label>
-        <textarea id="criteria" name="criteria" rows={4} defaultValue={"Technical skills\nProblem solving\nCommunication\nTeam fit"} className="input" />
+        <textarea id="criteria" name="criteria" rows={4} defaultValue={draft.criteria.join("\n")} className="input" />
         <FieldError name="criteria" />
       </section>
 
-      <div className="flex justify-end"><button className="btn-primary">Save advert</button></div>
+      <div className="flex justify-end"><button className="btn-primary h-10 px-6">Publish advert</button></div>
     </ActionForm>
   );
 }
