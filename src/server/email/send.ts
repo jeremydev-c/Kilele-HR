@@ -7,7 +7,7 @@ import { Email } from "../models/Email";
  * undo or block the approval, application or hire that triggered it.
  *
  * Settings (.env.local / Vercel):
- *   RESEND_API_KEY   turns real sending on; without it emails are only saved
+ *   RESEND_API_KEY   turns real sending on (RESEND_API works too); without it emails are only saved
  *   EMAIL_FROM       e.g. "Kilele HR <hr@your-domain.co.ke>" (a domain verified in Resend)
  *   APP_URL          the site's address for links; on Vercel it's worked out automatically
  *   EMAIL_DELIVERY   "seed" or "off": save without sending (the seed and the tests set these)
@@ -36,6 +36,11 @@ export function deliveryBlock(to: string, env: Record<string, string | undefined
   return null;
 }
 
+/** The Resend key, under either name people tend to give it. */
+export function resendKey(env: Record<string, string | undefined> = process.env) {
+  return env.RESEND_API_KEY || env.RESEND_API || "";
+}
+
 export function appUrl(env: Record<string, string | undefined> = process.env) {
   if (env.APP_URL) return env.APP_URL.replace(/\/$/, "");
   if (env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`;
@@ -53,7 +58,7 @@ export async function sendEmail(m: Outgoing) {
     reason = "Written while the demo data was loaded, so never sent.";
   } else if (process.env.EMAIL_DELIVERY === "off") {
     reason = "Email sending is off for this run (tests).";
-  } else if (!process.env.RESEND_API_KEY) {
+  } else if (!resendKey()) {
     reason = "No email service connected yet (add RESEND_API_KEY).";
   } else if (block) {
     status = "skipped";
@@ -62,7 +67,7 @@ export async function sendEmail(m: Outgoing) {
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
-        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+        headers: { Authorization: `Bearer ${resendKey()}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           from: process.env.EMAIL_FROM || "Kilele HR <onboarding@resend.dev>",
           to: [m.toName ? `${m.toName.replace(/[<>"]/g, "")} <${to}>` : to],

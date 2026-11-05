@@ -5,6 +5,7 @@ import { authorize } from "../authz";
 import { record } from "../audit";
 import { NotFoundError } from "../errors";
 import type { Ctx } from "../context";
+import { resendKey } from "../email/send";
 
 /** The Emails page: everything the system wrote, newest first. Needs email:read (emails can hold pay and personal details). */
 
@@ -29,7 +30,7 @@ export async function listEmails(ctx: Ctx, opts: { status?: string; q?: string }
   return {
     emails: emails.map((e) => ({ ...e, id: String(e._id) })),
     counts: Object.fromEntries(counts.map((c) => [c._id, c.n])) as Partial<Record<Status, number>>,
-    sendingOn: !!process.env.RESEND_API_KEY,
+    sendingOn: !!resendKey(),
   };
 }
 

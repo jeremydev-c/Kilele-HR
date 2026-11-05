@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as T from "@/server/email/templates";
-import { appUrl, deliveryBlock } from "@/server/email/send";
+import { appUrl, deliveryBlock, resendKey } from "@/server/email/send";
 
 test("an applicant's email has their link, reference and a plain-text twin", () => {
   const m = T.applicationReceived({ name: "Achieng Odhiambo", job: "Senior Frontend Engineer", number: "APP-2026-0001", link: "https://kilele-hr.vercel.app/careers/status/abc" });
@@ -49,4 +49,10 @@ test("links point at the right site: APP_URL, then Vercel, then this computer", 
   assert.equal(appUrl({ APP_URL: "https://hr.kilele.co.ke/" }), "https://hr.kilele.co.ke");
   assert.equal(appUrl({ VERCEL_PROJECT_PRODUCTION_URL: "kilele-hr.vercel.app" }), "https://kilele-hr.vercel.app");
   assert.equal(appUrl({}), "http://localhost:3000");
+});
+
+test("the Resend key works under either name", () => {
+  assert.equal(resendKey({ RESEND_API_KEY: "re_a" }), "re_a");
+  assert.equal(resendKey({ RESEND_API: "re_b" }), "re_b");
+  assert.equal(resendKey({}), "");
 });
