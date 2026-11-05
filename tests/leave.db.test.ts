@@ -1,9 +1,10 @@
 /**
  * Leave and the approval engine, against the seeded database.
- * Needs `npm run db` + `npm run seed:test` (pins the demo to the week of 4 Nov 2026). Changes data: run `npm run seed` afterwards.
+ * Needs `npm run db`. Runs on its own kilele_hr_test database (seeded by `npm run test:db`), so the demo data is never touched.
  *
  *   npm run test:db
  */
+import "./testDbSetup";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
@@ -22,7 +23,7 @@ const NOW = new Date("2026-11-04T09:00:00+03:00");
 const as = async (first: string): Promise<Ctx> => {
   const e = await Employee.findOne({ firstName: first }).lean();
   const u = await User.findOne({ employeeId: e!._id }).lean();
-  assert.ok(u, `${first} has a login (did you run npm run seed?)`);
+  assert.ok(u, `${first} has a login (did you run npm run test:db?)`);
   return ctxForUser(u, "test");
 };
 const req = async (first: string, status: WorkflowState["status"] = "pending") => {

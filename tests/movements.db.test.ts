@@ -1,7 +1,8 @@
 /**
- * Promotions and exits against the seeded database (seed with `npm run seed:test`,
- * which pins the demo to the week of 4 Nov 2026). Changes data: re-seed afterwards.
+ * Promotions and exits against the seeded test database (`npm run test:db` seeds
+ * kilele_hr_test, pinned to the week of 4 Nov 2026). The demo database is never touched.
  */
+import "./testDbSetup";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";

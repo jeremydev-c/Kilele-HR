@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { clientIp } from "@/server/context";
 import { runAction, type ActionResult } from "@/server/errors";
@@ -15,6 +16,7 @@ export async function applyAction(slug: string, _prev: ActionResult, fd: FormDat
     ({ token } = await submitApplication(slug, fields, cv, await clientIp()));
   });
   if (result.error) return result;
+  revalidatePath("/", "layout"); // HR sees the new applicant straight away
   redirect(`/careers/status/${token}?new=1`);
 }
 
@@ -23,5 +25,6 @@ export async function respondAction(token: string, action: "accept" | "decline" 
     await candidateRespond(token, action, await clientIp());
   });
   if (result.error) return result;
+  revalidatePath("/", "layout");
   redirect(`/careers/status/${token}`);
 }

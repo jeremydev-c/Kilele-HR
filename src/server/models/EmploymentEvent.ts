@@ -1,4 +1,5 @@
-import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+import { Schema, type InferSchemaType } from "mongoose";
+import { defineModel } from "./define";
 
 /**
  * One step in someone's career: hired, promoted, moved department, salary
@@ -44,4 +45,4 @@ EmploymentEventSchema.index({ employeeId: 1, effectiveDate: -1 });
 export type EmploymentEventRecord = InferSchemaType<typeof EmploymentEventSchema>;
 
 export const EmploymentEvent =
-  (models.EmploymentEvent as Model<EmploymentEventRecord>) || model("EmploymentEvent", EmploymentEventSchema);
+  defineModel<EmploymentEventRecord>("EmploymentEvent", EmploymentEventSchema);

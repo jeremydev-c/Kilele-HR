@@ -1,4 +1,5 @@
-import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+import { Schema, type InferSchemaType } from "mongoose";
+import { defineModel } from "./define";
 
 /**
  * Append-only, hash-chained audit trail (see server/audit.ts).
@@ -29,4 +30,4 @@ const AuditLogSchema = new Schema({
 
 export type AuditEntry = InferSchemaType<typeof AuditLogSchema>;
 
-export const AuditLog = (models.AuditLog as Model<AuditEntry>) || model("AuditLog", AuditLogSchema);
+export const AuditLog = defineModel<AuditEntry>("AuditLog", AuditLogSchema);

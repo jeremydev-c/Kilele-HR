@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CalendarDays, CheckCircle2, DoorOpen, Briefcase, TrendingUp } from "lucide-react";
 import { requireCtx } from "@/server/context";
 import { inbox } from "@/server/services/approvals";
@@ -8,13 +9,31 @@ export const metadata: Metadata = { title: "Approvals" };
 
 const ICON = { leave: CalendarDays, requisition: Briefcase, promotion: TrendingUp, separation: DoorOpen } as const;
 
-export default async function ApprovalsPage() {
+/** What the banner says after a decision (decideAction sends you here). */
+const DONE: Record<string, string> = {
+  approved: "Approved. The request is complete and has left your inbox.",
+  next: "Approved. It has moved on to the next approver.",
+  rejected: "Declined. The requester can see your reason.",
+};
+const NEXT: Record<string, { label: string; href: (id: string) => string }> = {
+  requisition: { label: "Write the advert", href: (id) => `/recruitment/vacancies/new?req=${id}` },
+};
+
+export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<{ done?: string; type?: string; id?: string }> }) {
   const ctx = await requireCtx();
-  const items = await inbox(ctx);
+  const [items, { done, type, id }] = await Promise.all([inbox(ctx), searchParams]);
+  const next = done === "approved" && type && id && /^[a-f0-9]{24}$/.test(id) ? NEXT[type] : undefined;
 
   return (
     <>
       <PageHeader title="Approvals" subtitle={items.length ? `${items.length} waiting` : undefined} />
+      {done && DONE[done] && (
+        <p role="status" className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+          <span className="flex-1">{DONE[done]}</span>
+          {next && <Link href={next.href(id!)} className="font-medium underline-offset-4 hover:underline">{next.label} →</Link>}
+        </p>
+      )}
       <div className="card divide-y divide-stone-100 overflow-hidden">
         {items.map((it) => {
           const Icon = ICON[it.type as keyof typeof ICON] ?? CalendarDays;

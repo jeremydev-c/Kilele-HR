@@ -26,14 +26,14 @@ export async function createVacancyAction(requisitionId: string, _prev: ActionRe
     id = await createVacancy(await requireCtx(), requisitionId, form(fd));
   });
   if (result.error) return result;
-  revalidatePath("/recruitment");
+  revalidatePath("/", "layout");
   redirect(`/recruitment/vacancies/${id}`);
 }
 
 export async function setVacancyStatusAction(id: string, status: "open" | "closed"): Promise<ActionResult> {
   return runAction(async () => {
     await setVacancyStatus(await requireCtx(), id, status);
-    revalidatePath(`/recruitment/vacancies/${id}`);
+    revalidatePath("/", "layout");
     return { ok: status === "open" ? "The advert is live on the careers page." : "Closed: no new applications." };
   });
 }
@@ -46,8 +46,7 @@ function pipeline(fn: (id: string, data: Record<string, unknown>) => Promise<unk
       const panel = fd.getAll("panelIds");
       if (panel.length) data.panelIds = panel.map(String);
       await fn(id, data);
-      revalidatePath(`/recruitment/applications/${id}`);
-      revalidatePath("/recruitment", "layout");
+      revalidatePath("/", "layout");
       return { ok };
     });
 }

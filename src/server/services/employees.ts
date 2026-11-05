@@ -66,9 +66,10 @@ export async function listEmployees(ctx: Ctx, f: DirectoryFilters = {}) {
   if (q) {
     // A 7–8 digit search is treated as a National ID: matched through the
     // blind index, so the encrypted values never need decrypting to search.
-    if (/^\d{7,8}$/.test(q) && has(ctx, "employee.pii:read")) {
+    const asId = q.replace(/[\s-]/g, "");
+    if (/^\d{7,8}$/.test(asId) && has(ctx, "employee.pii:read")) {
       byNationalId = true;
-      and.push({ nationalIdHash: blindIndex(q) });
+      and.push({ nationalIdHash: blindIndex(asId) });
     } else {
       const rx = { $regex: escapeRegex(q), $options: "i" };
       and.push({ $or: [{ firstName: rx }, { lastName: rx }, { staffNo: rx }, { workEmail: rx }, { jobTitle: rx }] });
@@ -212,6 +213,10 @@ const optionalId = z.string().optional().transform((s) => (s && Types.ObjectId.i
 const optionalText = (max = 200) => z.string().trim().max(max).optional().default("");
 const date = (msg: string) => z.string().min(1, msg).pipe(z.coerce.date({ message: msg }));
 
+/** ID-style numbers: people type them with spaces or dashes ("1234 5678", "A012-345678Z"); store them without. */
+const compact = (re: RegExp, msg: string) =>
+  z.string().transform((v) => v.replace(/[\s-]/g, "").toUpperCase()).pipe(z.string().regex(re, msg));
+
 const kenyanPhone = z
   .string()
   .trim()
@@ -247,18 +252,14 @@ const ContactInput = z.object({
 });
 
 const PiiInput = z.object({
-  nationalId: z.string().trim().regex(/^\d{7,8}$/, "A Kenyan National ID is 7 or 8 digits."),
-  kraPin: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[AP]\d{9}[A-Z]$/, "A KRA PIN looks like A012345678Z."),
-  nssfNo: z.string().trim().regex(/^(\d{6,12})?$/, "NSSF numbers are digits only."),
+  nationalId: compact(/^\d{7,8}$/, "A Kenyan National ID is 7 or 8 digits."),
+  kraPin: compact(/^[AP]\d{9}[A-Z]$/, "A KRA PIN looks like A012345678Z."),
+  nssfNo: compact(/^(\d{6,12})?$/, "An NSSF number is 6–12 digits."),
   shaNo: optionalText(20),
   dateOfBirth: date("Enter the date of birth.").refine((d) => ageOn(d, new Date()) >= 18, "Employees must be at least 18."),
   bankName: optionalText(60),
   bankBranch: optionalText(60),
-  bankAccount: z.string().trim().regex(/^(\d{6,16})?$/, "Account numbers are 6–16 digits."),
+  bankAccount: compact(/^(\d{6,16})?$/, "Account numbers are 6–16 digits."),
 });
 
 const gradeCodes = GRADES.map((g) => g.code) as [string, ...string[]];

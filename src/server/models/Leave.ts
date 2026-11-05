@@ -1,4 +1,5 @@
-import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+import { Schema, type InferSchemaType } from "mongoose";
+import { defineModel } from "./define";
 import { WorkflowSchema, type WorkflowState } from "../workflow";
 
 /**
@@ -33,7 +34,7 @@ const LeaveTypeSchema = new Schema(
 );
 
 export type LeaveTypeRecord = InferSchemaType<typeof LeaveTypeSchema>;
-export const LeaveType = (models.LeaveType as Model<LeaveTypeRecord>) || model("LeaveType", LeaveTypeSchema);
+export const LeaveType = defineModel<LeaveTypeRecord>("LeaveType", LeaveTypeSchema);
 
 /** Eid al-Fitr, Eid al-Adha and one-off gazetted holidays (fixed holidays are in lib/leaveDays.ts). */
 const PublicHolidaySchema = new Schema({
@@ -41,7 +42,7 @@ const PublicHolidaySchema = new Schema({
   name: { type: String, required: true },
 });
 export const PublicHoliday =
-  (models.PublicHoliday as Model<InferSchemaType<typeof PublicHolidaySchema>>) || model("PublicHoliday", PublicHolidaySchema);
+  defineModel<InferSchemaType<typeof PublicHolidaySchema>>("PublicHoliday", PublicHolidaySchema);
 
 const LeaveRequestSchema = new Schema(
   {
@@ -68,7 +69,7 @@ LeaveRequestSchema.index({ start: 1, end: 1 });
 
 export type LeaveRequestRecord = Omit<InferSchemaType<typeof LeaveRequestSchema>, "workflow"> & { workflow: WorkflowState };
 export const LeaveRequest =
-  (models.LeaveRequest as Model<LeaveRequestRecord>) || model("LeaveRequest", LeaveRequestSchema);
+  defineModel<LeaveRequestRecord>("LeaveRequest", LeaveRequestSchema);
 
 /** HR corrections to a balance (e.g. +2 days in lieu for working on a holiday). Always with a reason. */
 const LeaveAdjustmentSchema = new Schema(
@@ -83,4 +84,4 @@ const LeaveAdjustmentSchema = new Schema(
   { timestamps: true },
 );
 export const LeaveAdjustment =
-  (models.LeaveAdjustment as Model<InferSchemaType<typeof LeaveAdjustmentSchema>>) || model("LeaveAdjustment", LeaveAdjustmentSchema);
+  defineModel<InferSchemaType<typeof LeaveAdjustmentSchema>>("LeaveAdjustment", LeaveAdjustmentSchema);

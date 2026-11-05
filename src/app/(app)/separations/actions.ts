@@ -29,7 +29,7 @@ export async function signClearanceAction(id: string, itemId: string, _prev: Act
 export async function exitInterviewAction(id: string, _prev: ActionResult, fd: FormData): Promise<ActionResult> {
   return runAction(async () => {
     await submitExitInterview(await requireCtx(), id, form(fd));
-    revalidatePath(`/separations/${id}`);
+    revalidatePath("/", "layout");
     return { ok: "Thank you. Only HR sees your answers." };
   });
 }

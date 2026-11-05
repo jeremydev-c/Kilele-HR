@@ -1,4 +1,5 @@
-import { Schema, model, models, type ClientSession, type Model } from "mongoose";
+import { Schema, type ClientSession } from "mongoose";
+import { defineModel } from "./define";
 
 /** Gap-free sequence numbers (staff numbers, request numbers), handed out atomically. */
 const CounterSchema = new Schema({
@@ -7,7 +8,7 @@ const CounterSchema = new Schema({
 });
 
 export const Counter =
-  (models.Counter as Model<{ _id: string; value: number }>) || model("Counter", CounterSchema);
+  defineModel<{ _id: string; value: number }>("Counter", CounterSchema);
 
 export async function nextNumber(name: string, session?: ClientSession): Promise<number> {
   const doc = await Counter.findOneAndUpdate(

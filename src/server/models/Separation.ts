@@ -1,4 +1,5 @@
-import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+import { Schema, type InferSchemaType } from "mongoose";
+import { defineModel } from "./define";
 import { WorkflowSchema, type WorkflowState } from "../workflow";
 
 /**
@@ -51,4 +52,4 @@ const SeparationSchema = new Schema(
 SeparationSchema.index({ "clearance.departmentId": 1, completedAt: 1 });
 
 export type SeparationRecord = Omit<InferSchemaType<typeof SeparationSchema>, "workflow"> & { workflow: WorkflowState };
-export const Separation = (models.Separation as Model<SeparationRecord>) || model("Separation", SeparationSchema);
+export const Separation = defineModel<SeparationRecord>("Separation", SeparationSchema);

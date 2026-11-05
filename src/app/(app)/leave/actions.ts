@@ -16,15 +16,14 @@ export async function applyLeaveAction(_prev: ActionResult, fd: FormData): Promi
     id = await applyLeave(await requireCtx(), form(fd));
   });
   if (result.error) return result;
-  revalidatePath("/leave");
+  revalidatePath("/", "layout");
   redirect(`/leave/${id}?applied=1`);
 }
 
 export async function cancelLeaveAction(id: string, _prev: ActionResult, fd: FormData): Promise<ActionResult> {
   return runAction(async () => {
     await cancelLeave(await requireCtx(), id, String(fd.get("reason") ?? ""));
-    revalidatePath(`/leave/${id}`);
-    revalidatePath("/leave");
+    revalidatePath("/", "layout");
     return { ok: "Leave cancelled. The days are back in the balance." };
   });
 }
@@ -32,7 +31,7 @@ export async function cancelLeaveAction(id: string, _prev: ActionResult, fd: For
 export async function updateLeaveTypeAction(code: string, _prev: ActionResult, fd: FormData): Promise<ActionResult> {
   return runAction(async () => {
     await updateLeaveType(await requireCtx(), code, form(fd));
-    revalidatePath("/admin/leave-settings");
+    revalidatePath("/", "layout");
     return { ok: "Saved." };
   });
 }
@@ -40,7 +39,7 @@ export async function updateLeaveTypeAction(code: string, _prev: ActionResult, f
 export async function addHolidayAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
   return runAction(async () => {
     await addHoliday(await requireCtx(), form(fd));
-    revalidatePath("/admin/leave-settings");
+    revalidatePath("/", "layout");
     return { ok: "Holiday added. Working-day counts include it from now on." };
   });
 }
@@ -48,7 +47,7 @@ export async function addHolidayAction(_prev: ActionResult, fd: FormData): Promi
 export async function removeHolidayAction(id: string): Promise<ActionResult> {
   return runAction(async () => {
     await removeHoliday(await requireCtx(), id);
-    revalidatePath("/admin/leave-settings");
+    revalidatePath("/", "layout");
     return { ok: "Removed." };
   });
 }
@@ -56,6 +55,7 @@ export async function removeHolidayAction(id: string): Promise<ActionResult> {
 export async function adjustBalanceAction(_prev: ActionResult, fd: FormData): Promise<ActionResult> {
   return runAction(async () => {
     await adjustBalance(await requireCtx(), form(fd));
+    revalidatePath("/", "layout");
     return { ok: "Balance adjusted and recorded in the audit trail." };
   });
 }

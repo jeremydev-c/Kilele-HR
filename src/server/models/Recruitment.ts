@@ -1,4 +1,5 @@
-import { Schema, model, models, type InferSchemaType, type Model, type Types } from "mongoose";
+import { Schema, type InferSchemaType, type Types } from "mongoose";
+import { defineModel } from "./define";
 import { WorkflowSchema, type WorkflowState } from "../workflow";
 
 /**
@@ -31,7 +32,7 @@ const RequisitionSchema = new Schema(
 );
 
 export type RequisitionRecord = Omit<InferSchemaType<typeof RequisitionSchema>, "workflow"> & { workflow: WorkflowState };
-export const Requisition = (models.Requisition as Model<RequisitionRecord>) || model("Requisition", RequisitionSchema);
+export const Requisition = defineModel<RequisitionRecord>("Requisition", RequisitionSchema);
 
 // ---------------------------------------------------------------------------
 // Vacancy: the public job advert, with screening questions
@@ -85,7 +86,7 @@ const VacancySchema = new Schema(
 VacancySchema.index({ status: 1, closesOn: 1 });
 
 export type VacancyRecord = InferSchemaType<typeof VacancySchema>;
-export const Vacancy = (models.Vacancy as Model<VacancyRecord>) || model("Vacancy", VacancySchema);
+export const Vacancy = defineModel<VacancyRecord>("Vacancy", VacancySchema);
 
 // ---------------------------------------------------------------------------
 // Application: one candidate for one vacancy, with interviews embedded
@@ -166,4 +167,4 @@ ApplicationSchema.index({ "interviews.panel.employeeId": 1 });
 
 export type ApplicationRecord = InferSchemaType<typeof ApplicationSchema>;
 export type ApplicationDoc = ApplicationRecord & { _id: Types.ObjectId };
-export const Application = (models.Application as Model<ApplicationRecord>) || model("Application", ApplicationSchema);
+export const Application = defineModel<ApplicationRecord>("Application", ApplicationSchema);

@@ -1,12 +1,13 @@
 /**
  * Employee records against the real (seeded) database: what each role gets
- * back from the service layer. Needs `npm run db` running and `npm run seed`.
+ * back from the service layer. Needs `npm run db` running; `npm run test:db` seeds its own test database first.
  *
  *   npm run test:db
  *
  * It moves one person in the org chart and moves them back, and adds a few
- * audit entries; run `npm run seed` afterwards for a clean demo.
+ * audit entries, in kilele_hr_test only: the demo database is never touched.
  */
+import "./testDbSetup";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
@@ -19,7 +20,7 @@ import { ForbiddenError, AppError } from "@/server/errors";
 
 const as = async (email: string): Promise<Ctx> => {
   const u = await User.findOne({ email }).lean();
-  assert.ok(u, `seeded user ${email} exists (did you run npm run seed?)`);
+  assert.ok(u, `seeded user ${email} exists (did you run npm run test:db?)`);
   return ctxForUser(u, "test");
 };
 const idOf = async (first: string) => String((await Employee.findOne({ firstName: first }).select("_id").lean())!._id);

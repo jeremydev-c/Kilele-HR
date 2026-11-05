@@ -16,15 +16,14 @@ export async function createRoleAction(_prev: ActionResult, fd: FormData): Promi
     id = await createRole(await requireCtx(), roleInput(fd));
   });
   if (result.error) return result;
-  revalidatePath("/admin/roles");
+  revalidatePath("/", "layout");
   redirect(`/admin/roles/${id}`);
 }
 
 export async function updateRoleAction(id: string, _prev: ActionResult, fd: FormData): Promise<ActionResult> {
   return runAction(async () => {
     await updateRole(await requireCtx(), id, roleInput(fd));
-    revalidatePath("/admin/roles");
-    revalidatePath(`/admin/roles/${id}`);
+    revalidatePath("/", "layout");
     return { ok: "Role saved. Everyone with this role gets the change on their next page load." };
   });
 }
@@ -34,6 +33,6 @@ export async function deleteRoleAction(id: string): Promise<ActionResult> {
     await deleteRole(await requireCtx(), id);
   });
   if (result.error) return result;
-  revalidatePath("/admin/roles");
+  revalidatePath("/", "layout");
   redirect("/admin/roles");
 }

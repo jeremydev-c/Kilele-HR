@@ -1,4 +1,5 @@
-import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+import { Schema, type InferSchemaType } from "mongoose";
+import { defineModel } from "./define";
 
 /**
  * One employee. Fields are grouped by sensitivity class (see docs/DESIGN.md §4):
@@ -75,4 +76,4 @@ EmployeeSchema.index({ lastName: 1, firstName: 1 });
 export type EmployeeRecord = InferSchemaType<typeof EmployeeSchema>;
 
 export const Employee =
-  (models.Employee as Model<EmployeeRecord>) || model("Employee", EmployeeSchema);
+  defineModel<EmployeeRecord>("Employee", EmployeeSchema);

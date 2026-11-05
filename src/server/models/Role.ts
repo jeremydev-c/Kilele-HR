@@ -1,4 +1,5 @@
-import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+import { Schema, type InferSchemaType } from "mongoose";
+import { defineModel } from "./define";
 
 const RoleSchema = new Schema(
   {
@@ -12,4 +13,4 @@ const RoleSchema = new Schema(
   { timestamps: true },
 );
 
-export const Role = (models.Role as Model<InferSchemaType<typeof RoleSchema>>) || model("Role", RoleSchema);
+export const Role = defineModel<InferSchemaType<typeof RoleSchema>>("Role", RoleSchema);

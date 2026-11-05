@@ -1,8 +1,9 @@
 /**
  * Recruitment against the seeded database: the public form's defences, the
  * pipeline rules, hidden scorecards, offers and hire → employee.
- * Needs `npm run db` + `npm run seed:test` (pins the demo to the week of 4 Nov 2026). Changes data: run `npm run seed` afterwards.
+ * Needs `npm run db`. Runs on its own kilele_hr_test database (seeded by `npm run test:db`), so the demo data is never touched.
  */
+import "./testDbSetup";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
@@ -12,10 +13,11 @@ import { Employee } from "@/server/models/Employee";
 import { Application, Requisition, Vacancy } from "@/server/models/Recruitment";
 import { ctxForUser, type Ctx } from "@/server/context";
 import {
-  advertDraft, candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, readyToAdvertise,
+  advertDraft, candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, openVacancies, publicVacancy, readyToAdvertise,
   submitApplication, submitScorecard,
 } from "@/server/services/recruitment";
-import { AppError, ForbiddenError } from "@/server/errors";
+import { AppError, ForbiddenError, NotFoundError } from "@/server/errors";
+import { blindIndex } from "@/lib/crypto";
 import { decide } from "@/server/services/approvals";
 import { demoCvPdf } from "../scripts/demoPdf";
 
@@ -101,7 +103,8 @@ test("hire: the accepted candidate becomes an employee, nothing retyped", async 
   const id = await appOf("Achieng Odhiambo");
   const employeeId = await hireCandidate(await as("Kevin"), id, {
     firstName: "Achieng", lastName: "Odhiambo", gender: "female", workEmail: "achieng.odhiambo@kilele.co.ke",
-    nationalId: "31234567", kraPin: "A012345678B", nssfNo: "", shaNo: "", dateOfBirth: "1995-03-14", bankAccount: "",
+    // Typed the way people do: spaces and dashes are fine.
+    nationalId: "3123 4567", kraPin: "a012-345678b", nssfNo: "2001 4455 66", shaNo: "", dateOfBirth: "1995-03-14", bankAccount: "",
   });
   const e = (await Employee.findById(employeeId).lean())!;
   const david = (await Employee.findOne({ firstName: "David" }).lean())!;
@@ -111,9 +114,13 @@ test("hire: the accepted candidate becomes an employee, nothing retyped", async 
   assert.equal(String(e.managerId), String(david._id));
   assert.equal(e.status, "probation");
   assert.equal(e.contact?.personalEmail, "achieng.odhiambo@example.com");
+  assert.equal(e.nationalIdHash, blindIndex("31234567"), "stored without the space, so ID search finds her");
 
   const vac = (await Vacancy.findOne({ slug }).lean())!;
   assert.equal(vac.status, "filled", "1 of 1 hired");
+  // Filled means gone from the public site at once: not listed, no job page, no new applications.
+  assert.ok(!(await openVacancies(NOW)).some((v) => v.slug === slug), "off the website's job list");
+  await assert.rejects(publicVacancy(slug, NOW), NotFoundError, "its job page is gone");
   await assert.rejects(hireCandidate(await as("Kevin"), id, {}), /accepted an offer/, "can't hire twice");
 });
 

@@ -1,4 +1,5 @@
-import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+import { Schema, type InferSchemaType } from "mongoose";
+import { defineModel } from "./define";
 import { WorkflowSchema, type WorkflowState } from "../workflow";
 
 /**
@@ -31,4 +32,4 @@ const MovementSchema = new Schema(
 );
 
 export type MovementRecord = Omit<InferSchemaType<typeof MovementSchema>, "workflow"> & { workflow: WorkflowState };
-export const Movement = (models.Movement as Model<MovementRecord>) || model("Movement", MovementSchema);
+export const Movement = defineModel<MovementRecord>("Movement", MovementSchema);

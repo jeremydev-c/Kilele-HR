@@ -18,7 +18,7 @@ export async function createEmployeeAction(_prev: ActionResult, fd: FormData): P
     id = await createEmployee(await requireCtx(), data);
   });
   if (result.error) return result;
-  revalidatePath("/people");
+  revalidatePath("/", "layout");
   redirect(`/people/${id}`);
 }
 
@@ -28,8 +28,7 @@ const UPDATERS = { directory: updateDirectory, contact: updateContact, pii: upda
 export async function updateEmployeeAction(id: string, section: Section, _prev: ActionResult, fd: FormData): Promise<ActionResult> {
   return runAction(async () => {
     await UPDATERS[section](await requireCtx(), id, form(fd));
-    revalidatePath(`/people/${id}`);
-    revalidatePath("/people");
+    revalidatePath("/", "layout");
     return { ok: "Saved.", href: `/people/${id}` };
   });
 }
