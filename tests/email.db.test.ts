@@ -106,3 +106,15 @@ test("Send again: once per email, never to demo addresses, HR only", async () =>
     if (saved.b === undefined) delete process.env.RESEND_API_KEY; else process.env.RESEND_API_KEY = saved.b;
   }
 });
+
+test("staff emails also go to their personal email; applicants get one copy", async () => {
+  const esther = (await Employee.findOne({ firstName: "Esther" }).lean())!;
+  const daniel = await Employee.findOne({ firstName: "Daniel" }).lean();
+  const leave = (await LeaveRequest.findOne({ employeeId: daniel!._id, "workflow.status": "pending" }).lean())!;
+  const asked = (await Email.find({ kind: "approval.needed", entityId: String(leave._id) }).lean()).map((e) => e.to);
+  assert.ok(asked.includes(esther.workEmail), "her work email");
+  assert.ok(asked.includes(esther.contact!.personalEmail!.toLowerCase()), "and her personal email");
+
+  const halima = await Application.findOne({ "candidate.name": "Halima Abdi" }).lean();
+  assert.equal(await Email.countDocuments({ kind: "application.received", entityId: String(halima!._id) }), 1, "no duplicate for applicants");
+});

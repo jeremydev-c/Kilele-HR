@@ -31,7 +31,9 @@ test("HR's town hall reaches every current employee but the sender, each by emai
   const current = await Employee.countDocuments({ status: { $ne: "separated" } });
   assert.equal(hall.recipientIds.length, current - 1, "everyone except Grace");
   assert.ok(!hall.recipientIds.some((r) => String(r) === hall.authorEmployeeId?.toString()));
-  assert.equal(await Email.countDocuments({ entity: "announcement", entityId: String(hall._id) }), hall.recipientIds.length, "one email each");
+  const sent = await Email.find({ entity: "announcement", entityId: String(hall._id) }).lean();
+  assert.equal(sent.filter((m) => m.to.endsWith("@kilele.co.ke")).length, hall.recipientIds.length, "one to each work email");
+  assert.equal(sent.length, hall.recipientIds.length * 2, "and a copy to each personal email");
   assert.equal(hall.meeting!.at.toISOString(), "2026-11-13T12:00:00.000Z", "15:00 in Nairobi");
 });
 

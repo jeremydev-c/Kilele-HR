@@ -21,6 +21,33 @@ import * as T from "./templates";
 type Recipient = { email: string; name: string };
 const quiet = (where: string) => (err: unknown) => console.error(`[email] ${where} failed`, err);
 
+/**
+ * Staff emails go to the work address and, if their profile has one, a copy to
+ * their personal email too. Matched by login or work email, so applicants
+ * (who aren't staff) are left alone.
+ */
+async function sendToStaff(messages: Outgoing[]) {
+  const addresses = [...new Set(messages.map((m) => m.to.toLowerCase()))];
+  const [users, people] = await Promise.all([
+    User.find({ email: { $in: addresses } }).select("email employeeId").lean<{ email: string; employeeId: Types.ObjectId | null }[]>(),
+    Employee.find({ workEmail: { $in: addresses } }).select("workEmail").lean<{ _id: Types.ObjectId; workEmail: string }[]>(),
+  ]);
+  const employeeOf = new Map<string, string>();
+  for (const u of users) if (u.employeeId) employeeOf.set(u.email, String(u.employeeId));
+  for (const e of people) employeeOf.set(e.workEmail, String(e._id));
+  const personal = new Map(
+    (await Employee.find({ _id: { $in: [...new Set(employeeOf.values())] } }).select("contact.personalEmail").lean<{ _id: Types.ObjectId; contact?: { personalEmail?: string } }[]>())
+      .map((e) => [String(e._id), e.contact?.personalEmail?.trim().toLowerCase() ?? ""]),
+  );
+  const copies: Outgoing[] = [];
+  for (const m of messages) {
+    const id = employeeOf.get(m.to.toLowerCase());
+    const extra = id ? personal.get(id) : "";
+    if (extra && extra !== m.to.toLowerCase()) copies.push({ ...m, to: extra });
+  }
+  await sendAll([...messages, ...copies]);
+}
+
 const nairobi = new Intl.DateTimeFormat("en-KE", { dateStyle: "full", timeStyle: "short", timeZone: "Africa/Nairobi" });
 const day = (d: Date | string) => new Intl.DateTimeFormat("en-KE", { dateStyle: "long", timeZone: "UTC" }).format(new Date(d));
 const MODE: Record<string, string> = { in_person: "In person", video: "Video call", phone: "Phone call" };
@@ -70,7 +97,7 @@ async function notifyApproversNow(type: WorkflowType, d: WfDoc) {
   const link = `${appUrl()}/${PATH[type]}/${d._id}`;
   const step = d.workflow.steps[d.workflow.current]?.label ?? "";
   const people = await approversOf(d.workflow);
-  await sendAll(
+  await sendToStaff(
     people.map((p): Outgoing => ({
       to: p.email, toName: p.name, kind: "approval.needed", entity: type, entityId: String(d._id),
       ...T.approvalNeeded({ name: p.name, what: describe(type, d), step, requestedBy: d.workflow.requestedByName, link }),
@@ -113,7 +140,7 @@ export function notifyDecision(type: WorkflowType, id: unknown, byName: string, 
         });
       }
     }
-    await sendAll(out);
+    await sendToStaff(out);
     if (outcome === "next") await notifyApproversNow(type, d);
   })().catch(quiet(`decision on ${type}`));
 }
@@ -172,7 +199,7 @@ export function onInterviewScheduled(a: App, v: Vac) {
         ...T.panelInvite({ name: u.name, candidate: a.candidate.name, job: v.title, when, how: MODE[i.mode] ?? i.mode, where: i.where, link: `${appUrl()}/recruitment/applications/${a._id}` }),
       });
     }
-    await sendAll(out);
+    await sendToStaff(out);
   })().catch(quiet("interview scheduled"));
 }
 
@@ -191,10 +218,10 @@ export function onCandidateAnswer(a: App, v: Vac, accepted: boolean) {
     if (!v.hiringManagerId) return;
     const u = await User.findOne({ employeeId: v.hiringManagerId, status: "active" }).lean();
     if (!u) return;
-    await sendEmail({
+    await sendToStaff([{
       to: u.email, toName: u.name, kind: accepted ? "offer.accepted" : "offer.declined", entity: "application", entityId: String(a._id),
       ...T.offerAnswered({ name: u.name, candidate: a.candidate.name, job: v.title, accepted, link: `${appUrl()}/recruitment/applications/${a._id}` }),
-    });
+    }]);
   })().catch(quiet("offer answer"));
 }
 
@@ -236,22 +263,22 @@ export function onClearanceStarted(separationId: unknown) {
         ...T.clearanceNeeded({ name: u.name, leaver: s.employeeName, department: mine.name, items: mine.items, lastDay: day(s.lastDay), link: `${appUrl()}/separations/${s._id}` }),
       });
     }
-    await sendAll(out);
+    await sendToStaff(out);
   })().catch(quiet("clearance"));
 }
 
 export function onAccountCreated(u: { _id: unknown; email: string; name: string }) {
-  return sendEmail({
+  return sendToStaff([{
     to: u.email, toName: u.name, kind: "account.created", entity: "user", entityId: String(u._id),
     ...T.accountCreated({ name: u.name, email: u.email, link: `${appUrl()}/login` }),
-  }).catch(quiet("account created"));
+  }]).catch(quiet("account created"));
 }
 
 export function onPasswordReset(u: { _id: unknown; email: string; name: string }, byName: string) {
-  return sendEmail({
+  return sendToStaff([{
     to: u.email, toName: u.name, kind: "account.password_reset", entity: "user", entityId: String(u._id),
     ...T.passwordReset({ name: u.name, by: byName, link: `${appUrl()}/login` }),
-  }).catch(quiet("password reset"));
+  }]).catch(quiet("password reset"));
 }
 
 /** An announcement or meeting: one email to each person it was sent to. */
@@ -276,6 +303,6 @@ export function onAnnouncement(a: {
         ...T.announcement({ name, from: a.authorName, title: a.title, body: a.body, meeting, link }),
       };
     });
-    await sendAll(out);
+    await sendToStaff(out);
   })().catch(quiet("announcement"));
 }
