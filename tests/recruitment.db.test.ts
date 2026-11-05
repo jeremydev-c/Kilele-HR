@@ -12,7 +12,7 @@ import { Employee } from "@/server/models/Employee";
 import { Application, Vacancy } from "@/server/models/Recruitment";
 import { ctxForUser, type Ctx } from "@/server/context";
 import {
-  candidateStatus, createRequisition, getApplication, hireCandidate, makeOffer, moveStage, submitApplication, submitScorecard,
+  candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, submitApplication, submitScorecard,
 } from "@/server/services/recruitment";
 import { AppError, ForbiddenError } from "@/server/errors";
 import { demoCvPdf } from "../scripts/demoPdf";
@@ -113,4 +113,24 @@ test("hire: the accepted candidate becomes an employee, nothing retyped", async 
   const vac = (await Vacancy.findOne({ slug }).lean())!;
   assert.equal(vac.status, "filled", "1 of 1 hired");
   await assert.rejects(hireCandidate(await as("Kevin"), id, {}), /accepted an offer/, "can't hire twice");
+});
+
+test("hiring suggestions: leavers in your area, retirements only with PII access, gone once a replacement is requested", async () => {
+  const names = async (first: string) => (await hiringSuggestions(await as(first), NOW)).map((s) => s.name);
+
+  const joseph = await names("Joseph"); // Operations manager, no PII access
+  assert.ok(joseph.includes("Patrick Mwenda"), "his leaver");
+  assert.ok(!joseph.includes("John Maina"), "retirement dates reveal age: not for him");
+  assert.ok(!(await names("David")).includes("Patrick Mwenda"), "not another department's leaver");
+
+  const grace = await names("Grace"); // HR: every department, with PII
+  assert.ok(grace.includes("John Maina"), "turns 60 within 6 months");
+  assert.ok(!grace.includes("Francis Njoroge"), "already covered by Esther's request");
+
+  const patrick = (await Employee.findOne({ firstName: "Patrick" }).lean())!;
+  await createRequisition(await as("Joseph"), {
+    title: patrick.jobTitle, departmentId: String(patrick.departmentId), grade: patrick.grade, employmentType: "permanent", openings: 1,
+    justification: "Replacement for Patrick, who has resigned.", replacesEmployeeId: String(patrick._id),
+  }, NOW);
+  assert.ok(!(await names("Joseph")).includes("Patrick Mwenda"), "no repeat nag once requested");
 });

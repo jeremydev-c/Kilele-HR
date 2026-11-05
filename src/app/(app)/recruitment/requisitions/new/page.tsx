@@ -44,7 +44,7 @@ export default async function NewRequisitionPage({ searchParams }: { searchParam
                   <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600"><Lightbulb className="size-4" /></span>
                   <span>
                     <span className="block font-medium">Replace {s.name}</span>
-                    <span className="block text-sm text-stone-500">{s.jobTitle} · {s.why} {fmtDate(s.when)}</span>
+                    <span className="block text-sm text-stone-500">{s.jobTitle} · {s.why === "Turns 60" ? "Turns 60 on" : `${s.why}, last day`} {fmtDate(s.when)}</span>
                   </span>
                 </span>
                 <Link href={`?replaces=${s.employeeId}`} className="btn-secondary">Use</Link>
