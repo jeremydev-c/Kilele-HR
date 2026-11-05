@@ -7,6 +7,7 @@ import { AUDIT_CATEGORIES, listAudit } from "@/server/services/auditTrail";
 import { ActionForm } from "@/components/ActionForm";
 import { Badge, Empty, PageHeader, fmtDateTime } from "@/components/ui";
 import { verifyChainAction } from "./actions";
+import { displayIp } from "@/lib/ip";
 
 export const metadata: Metadata = { title: "Audit trail" };
 
@@ -72,7 +73,7 @@ export default async function AuditPage({
                 <td className="whitespace-nowrap text-stone-600">{fmtDateTime(e.at)}</td>
                 <td>
                   <p className="font-medium">{e.actorName}</p>
-                  {e.ip && <p className="font-mono text-xs text-stone-400">{e.ip}</p>}
+                  {e.ip && <p className="font-mono text-xs text-stone-400">{displayIp(e.ip)}</p>}
                 </td>
                 <td>
                   <div className="flex flex-wrap items-center gap-2">

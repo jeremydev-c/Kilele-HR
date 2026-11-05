@@ -178,8 +178,22 @@ const BANKS = [
   { name: "NCBA Bank", branches: ["Mara Road", "The Junction"] },
   { name: "Absa Bank Kenya", branches: ["Queensway", "Yaya Centre"] },
 ];
-const KIN = ["Spouse", "Mother", "Father", "Brother", "Sister"];
-const KIN_NAMES = ["Mary Wanjiku", "James Mwangi", "Ann Akinyi", "Peter Kiprotich", "Jane Nekesa", "Samuel Ouma", "Lilian Chepkemoi", "George Kimani"];
+// Relatives: a woman is a mother, sister or spouse; a man a father, brother or spouse.
+const KIN_PEOPLE = [
+  { name: "Mary Wanjiku", f: true }, { name: "James Mwangi", f: false }, { name: "Ann Akinyi", f: true }, { name: "Peter Kiprotich", f: false },
+  { name: "Jane Nekesa", f: true }, { name: "Samuel Ouma", f: false }, { name: "Lilian Chepkemoi", f: true }, { name: "George Kimani", f: false },
+];
+const relative = (i: number) => {
+  const k = KIN_PEOPLE[i];
+  return { name: k.name, relationship: pick(k.f ? ["Spouse", "Mother", "Sister"] : ["Spouse", "Father", "Brother"]), phone: phone() };
+};
+/** Next of kin and emergency contact: two different relatives (same number of random draws as before). */
+const relatives = () => {
+  const a = Math.floor(rand() * KIN_PEOPLE.length);
+  const kin = relative(a);
+  const b = (a + 1 + Math.floor(rand() * (KIN_PEOPLE.length - 1))) % KIN_PEOPLE.length;
+  return { nextOfKin: kin, emergencyContact: relative(b) };
+};
 const phone = () => `07${pick(["01", "10", "11", "12", "20", "22", "23", "45", "57", "68", "90", "95"])} ${digits(3)} ${digits(3)}`;
 
 function addYears(iso: string, years: number) {
@@ -287,8 +301,7 @@ async function main() {
         address: `${place.area}, P.O. Box ${digits(5)}-00100`,
         town: place.town,
         county: place.county,
-        nextOfKin: { name: pick(KIN_NAMES), relationship: pick(KIN), phone: phone() },
-        emergencyContact: { name: pick(KIN_NAMES), relationship: pick(KIN), phone: phone() },
+        ...relatives(),
       },
       pii: {
         nationalId: encrypt(nationalId),
