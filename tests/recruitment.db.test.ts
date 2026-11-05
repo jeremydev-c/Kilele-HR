@@ -15,6 +15,7 @@ import {
   candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, submitApplication, submitScorecard,
 } from "@/server/services/recruitment";
 import { AppError, ForbiddenError } from "@/server/errors";
+import { decide } from "@/server/services/approvals";
 import { demoCvPdf } from "../scripts/demoPdf";
 
 const NOW = new Date("2026-11-04T09:00:00+03:00");
@@ -128,9 +129,12 @@ test("hiring suggestions: leavers in your area, retirements only with PII access
   assert.ok(!grace.includes("Francis Njoroge"), "already covered by Esther's request");
 
   const patrick = (await Employee.findOne({ firstName: "Patrick" }).lean())!;
-  await createRequisition(await as("Joseph"), {
+  const replacement = await createRequisition(await as("Joseph"), {
     title: patrick.jobTitle, departmentId: String(patrick.departmentId), grade: patrick.grade, employmentType: "permanent", openings: 1,
     justification: "Replacement for Patrick, who has resigned.", replacesEmployeeId: String(patrick._id),
   }, NOW);
   assert.ok(!(await names("Joseph")).includes("Patrick Mwenda"), "no repeat nag once requested");
+  // Declined means "we won't replace": it still doesn't come back.
+  await decide(await as("Grace"), "requisition", replacement, { decision: "reject", comment: "Logistics work moves to the new partner." }, NOW);
+  assert.ok(!(await names("Joseph")).includes("Patrick Mwenda"), "not suggested again after a decline");
 });

@@ -126,7 +126,8 @@ export type HiringSuggestion = {
  * People whose job may need filling, for this person's area:
  *   1. someone with an exit in progress (or who left in the last 60 days)
  *   2. someone reaching 60 within 6 months (only if you may see retirement dates: they reveal age)
- * Anyone who already has a replacement request (pending or approved) is skipped.
+ * Anyone who already has a replacement request is skipped, whatever its outcome:
+ * once it has been asked and decided (even declined), it isn't suggested again.
  */
 export async function hiringSuggestions(ctx: Ctx, now = new Date()): Promise<HiringSuggestion[]> {
   if (!has(ctx, "requisition:create") || !ctx.employee) return [];
@@ -141,7 +142,7 @@ export async function hiringSuggestions(ctx: Ctx, now = new Date()): Promise<Hir
       "workflow.status": { $in: ["pending", "approved"] },
       $or: [{ completedAt: null }, { completedAt: { $gte: since } }],
     }).lean(),
-    Requisition.find({ replacesEmployeeId: { $ne: null }, "workflow.status": { $in: ["pending", "approved"] } }).select("replacesEmployeeId").lean(),
+    Requisition.find({ replacesEmployeeId: { $ne: null } }).select("replacesEmployeeId").lean(),
     Department.find().select("name").lean(),
   ]);
   const done = new Set(covered.map((r) => String(r.replacesEmployeeId)));
