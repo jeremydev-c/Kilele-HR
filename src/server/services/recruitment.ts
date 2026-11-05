@@ -621,13 +621,25 @@ export async function moveStage(ctx: Ctx, id: string, input: unknown, now = new 
   });
 }
 
-const InterviewInput = z.object({
-  at: z.string().min(1, "Choose a date and time.").pipe(z.coerce.date({ message: "Choose a date and time." })),
-  durationMins: z.coerce.number().int().min(15).max(240).default(45),
-  mode: z.enum(["in_person", "video", "phone"]),
-  where: z.string().trim().min(2, "Say where (room, video link or phone).").max(200),
-  panelIds: z.array(objectId).min(1, "Pick at least one interviewer.").max(5),
-});
+const nairobiTime = new Intl.DateTimeFormat("en-KE", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Nairobi" });
+
+const InterviewInput = z
+  .object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date."),
+    time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Choose a time."),
+    durationMins: z.coerce.number().int().min(15).max(240).default(45),
+    mode: z.enum(["in_person", "video", "phone"]),
+    where: z.string().trim().min(2, "Say where (room, video link or phone).").max(200),
+    panelIds: z.array(objectId).min(1, "Pick at least one interviewer.").max(5),
+  })
+  // JavaScript would quietly turn 30 February into 2 March: check the day really exists.
+  .refine(({ date }) => {
+    const [y, m, d] = date.split("-").map(Number);
+    const real = new Date(Date.UTC(y, m - 1, d));
+    return real.getUTCMonth() === m - 1 && real.getUTCDate() === d;
+  }, { path: ["date"], message: "That date doesn't exist." })
+  // Times are Nairobi time whatever the server's clock zone (Vercel runs on UTC). Kenya has no daylight saving.
+  .transform(({ date, time, ...rest }) => ({ ...rest, at: new Date(`${date}T${time}:00+03:00`) }));
 
 export async function scheduleInterview(ctx: Ctx, id: string, input: unknown, now = new Date()) {
   if (!has(ctx, "application:review") && !has(ctx, "recruitment:manage")) throw new ForbiddenError();
@@ -650,7 +662,7 @@ export async function scheduleInterview(ctx: Ctx, id: string, input: unknown, no
   a.interviews.push({ at: data.at, durationMins: data.durationMins, mode: data.mode, where: data.where, panel, scorecards: [], scheduledByName: ctx.name });
   if (a.stage === "shortlisted") {
     a.stage = "interview";
-    a.history.push({ stage: "interview", at: now, byName: ctx.name, note: `Interview on ${data.at.toISOString().slice(0, 16).replace("T", " ")}` });
+    a.history.push({ stage: "interview", at: now, byName: ctx.name, note: `Interview on ${nairobiTime.format(data.at)}` });
   }
   await a.save();
   await record(ctx, {

@@ -5,14 +5,14 @@ import { EMPLOYMENT_TYPES, kes } from "@/components/people";
 /** Form building blocks shared by "Add employee" and "Edit employee". */
 
 export function Input({
-  name, label, defaultValue, type = "text", required, placeholder, hint, className = "",
+  name, label, defaultValue, type = "text", required, placeholder, hint, className = "", min,
 }: {
-  name: string; label: string; defaultValue?: string | number; type?: string; required?: boolean; placeholder?: string; hint?: string; className?: string;
+  name: string; label: string; defaultValue?: string | number; type?: string; required?: boolean; placeholder?: string; hint?: string; className?: string; min?: string;
 }) {
   return (
     <div className={className}>
       <label className="label" htmlFor={name}>{label}{required && <span className="text-red-600"> *</span>}</label>
-      <input id={name} name={name} type={type} defaultValue={defaultValue} required={required} placeholder={placeholder} className="input" />
+      <input id={name} name={name} type={type} defaultValue={defaultValue} required={required} placeholder={placeholder} min={min} className="input" />
       {hint && <p className="mt-1 text-xs text-stone-500">{hint}</p>}
       <FieldError name={name} />
     </div>

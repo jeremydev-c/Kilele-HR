@@ -482,7 +482,7 @@ async function main() {
 
   // Achieng: interviewed, both panellists scored, offered, accepted → ready for HR to hire (the live demo)
   const panel = [String(ids.get("david")), String(ids.get("collins"))];
-  await scheduleInterview(faith, achieng.id, { at: `${d("2026-10-22")}T10:00`, durationMins: 60, mode: "in_person", where: "Boardroom, 4th floor", panelIds: panel }, on("2026-10-15"));
+  await scheduleInterview(faith, achieng.id, { date: d("2026-10-22"), time: "10:00", durationMins: 60, mode: "in_person", where: "Boardroom, 4th floor", panelIds: panel }, on("2026-10-15"));
   const ivA = String((await Application.findById(achieng.id).lean())!.interviews[0]._id);
   const score = async (who: string, appId: string, interviewId: string, s: number[], recommendation: string, notes: string) =>
     submitScorecard(await ctxOf(who), appId, { interviewId, recommendation, notes, ...Object.fromEntries(s.map((x, i) => [`score_${i}`, String(x)])) }, on("2026-10-22"));
@@ -492,7 +492,7 @@ async function main() {
   await candidateRespond(achieng.token, "accept", "seed", on("2026-11-03"));
 
   // Kip: interview next week; Collins has scored, David hasn't (demo: hidden scorecards)
-  await scheduleInterview(faith, kip.id, { at: `${d("2026-11-12")}T14:00`, durationMins: 45, mode: "video", where: "Google Meet link sent by email", panelIds: panel }, on("2026-10-20"));
+  await scheduleInterview(faith, kip.id, { date: d("2026-11-12"), time: "14:00", durationMins: 45, mode: "video", where: "Google Meet link sent by email", panelIds: panel }, on("2026-10-20"));
   const ivK = String((await Application.findById(kip.id).lean())!.interviews[0]._id);
   await score("collins", kip.id, ivK, [4, 3, 4, 4], "yes", "Solid React fundamentals. Needs to grow in system design, but coachable.");
 

@@ -19,6 +19,17 @@ const STAGE_TONE: Record<string, "gray" | "blue" | "amber" | "green" | "red" | "
 const REC = { strong_yes: "Strong yes", yes: "Yes", no: "No", strong_no: "Strong no" } as Record<string, string>;
 const MODE = { in_person: "In person", video: "Video", phone: "Phone" } as Record<string, string>;
 
+/** Interview start times: 07:00 to 19:00, every 15 minutes. */
+const TIME_SLOTS = Array.from({ length: 49 }, (_, i) => {
+  const t = `${String(7 + Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`;
+  return { value: t, label: t };
+});
+
+/** The earliest date the picker offers: today in Nairobi (the server may run on UTC). */
+function todayInNairobi() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Nairobi" }).format(new Date());
+}
+
 function Card({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
   return (
     <section className={`card p-5 ${className}`}>
@@ -208,10 +219,12 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
             <Card title={interviews.length ? "Schedule another interview" : "Schedule an interview"}>
               <ActionForm action={scheduleInterviewAction.bind(null, id)} className="space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Input name="at" label="Date and time" type="datetime-local" required />
+                  {/* Separate date and time: Chrome's combined date-time box rejects a half-filled time with a confusing message. */}
+                  <Input name="date" label="Date" type="date" required min={todayInNairobi()} />
+                  <Select name="time" label="Time (Nairobi)" required defaultValue="10:00" options={TIME_SLOTS} />
                   <Input name="durationMins" label="Minutes" type="number" defaultValue={45} />
                   <Select name="mode" label="How" defaultValue="in_person" options={Object.entries(MODE).map(([value, label]) => ({ value, label }))} />
-                  <Input name="where" label="Where" required placeholder="Boardroom, 4th floor / meet link" />
+                  <Input name="where" label="Where" required placeholder="Boardroom, 4th floor / meet link" className="sm:col-span-2" />
                 </div>
                 <fieldset>
                   <legend className="label">Panel</legend>

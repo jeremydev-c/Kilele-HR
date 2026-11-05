@@ -13,7 +13,7 @@ import { Employee } from "@/server/models/Employee";
 import { Application, Requisition, Vacancy } from "@/server/models/Recruitment";
 import { ctxForUser, type Ctx } from "@/server/context";
 import {
-  advertDraft, candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, openVacancies, publicVacancy, readyToAdvertise,
+  advertDraft, candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, openVacancies, publicVacancy, readyToAdvertise, scheduleInterview,
   submitApplication, submitScorecard,
 } from "@/server/services/recruitment";
 import { AppError, ForbiddenError, NotFoundError } from "@/server/errors";
@@ -170,4 +170,21 @@ test("approved hires are ready to advertise, with the advert pre-filled", async 
 
   // Recruiters only: a line manager can't open the draft.
   await assert.rejects(advertDraft(await as("David"), repeat, NOW), ForbiddenError);
+});
+
+test("interviews: a date and a time, always Nairobi time whatever the server's zone", async () => {
+  const kip = await appOf("Kipchirchir Langat");
+  const david = String((await Employee.findOne({ firstName: "David" }).lean())!._id);
+  const before = (await Application.findById(kip).lean())!.interviews;
+  // The seeded 14:00 interview is 11:00 UTC.
+  assert.ok(before.some((i) => new Date(i.at).toISOString().endsWith("T11:00:00.000Z")));
+
+  await scheduleInterview(await as("Faith"), kip, { date: "2026-11-20", time: "10:00", durationMins: "45", mode: "video", where: "Meet link", panelIds: [david] }, NOW);
+  const after = (await Application.findById(kip).lean())!.interviews;
+  assert.equal(new Date(after.at(-1)!.at).toISOString(), "2026-11-20T07:00:00.000Z", "10:00 in Nairobi");
+
+  const base = { durationMins: "45", mode: "video", where: "Meet link", panelIds: [david] };
+  await assert.rejects(scheduleInterview(await as("Faith"), kip, { ...base, date: "2026-11-20", time: "" }, NOW), /Choose a time/);
+  await assert.rejects(scheduleInterview(await as("Faith"), kip, { ...base, date: "2026-02-30", time: "10:00" }, NOW), /doesn't exist/);
+  await assert.rejects(scheduleInterview(await as("Faith"), kip, { ...base, date: "2026-11-01", time: "10:00" }, NOW), /in the future/);
 });
