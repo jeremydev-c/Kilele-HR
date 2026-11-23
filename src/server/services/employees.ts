@@ -9,7 +9,7 @@ import { EmploymentEvent } from "../models/EmploymentEvent";
 import { AuditLog } from "../models/AuditLog";
 import { nextNumber } from "../models/Counter";
 import { authorize, can, has, scopeFilter } from "../authz";
-import { diff, record } from "../audit";
+import { diff, record, secretChange } from "../audit";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import { decryptPii, PII_FIELDS, toEmployeeView, type EmployeeView } from "../employeeView";
 import type { Ctx } from "../context";
@@ -355,8 +355,10 @@ export async function createEmployee(ctx: Ctx, input: unknown, opts: { approvedS
   }
   const basicSalary = opts.approvedSalary ?? data.basicSalary ?? grade.min;
 
+  let managerName = "(none)";
   const created = await withTransaction(async (session) => {
     const mgr = await pathUnder(data.managerId, null, session);
+    managerName = mgr.managerName;
     const staffNo = `KG-${await nextNumber("staffNo", session)}`;
     const [e] = await Employee.create(
       [
@@ -405,7 +407,14 @@ export async function createEmployee(ctx: Ctx, input: unknown, opts: { approvedS
     entity: "employee",
     entityId: String(created._id),
     summary: `Added employee ${data.firstName} ${data.lastName} (${created.staffNo}), ${data.jobTitle}, ${dept.name}`,
-    changes: [{ field: "PII", to: "[redacted] national ID, KRA PIN, NSSF, SHA, date of birth, bank" }],
+    // A new record has no "before": the log shows what it started with. Pay is sealed; IDs and bank details aren't logged at all.
+    changes: [
+      { field: "jobTitle", to: data.jobTitle },
+      { field: "departmentId", to: dept.name },
+      { field: "manager", to: managerName },
+      { field: "grade", to: data.grade },
+      secretChange("basicSalary", "pay", "", basicSalary),
+    ],
   });
   return String(created._id);
 }
@@ -433,6 +442,7 @@ export async function updateDirectory(ctx: Ctx, id: string, input: unknown) {
     managerId: e.managerId ? String(e.managerId) : "",
   } as Record<string, unknown>;
 
+  let managerNames = { from: "", to: "" };
   await withTransaction(async (session) => {
     const managerChanged = String(e.managerId ?? "") !== (data.managerId ?? "");
     const deptChanged = String(e.departmentId) !== data.departmentId;
@@ -440,6 +450,7 @@ export async function updateDirectory(ctx: Ctx, id: string, input: unknown) {
     const oldManagerName = e.managerId
       ? (await Employee.findById(e.managerId).select("firstName lastName").session(session).lean<Stored>().then((m) => (m ? fullName(m) : "")))
       : "(none)";
+    if (mgr) managerNames = { from: oldManagerName, to: mgr.managerName };
 
     await Employee.updateOne(
       { _id: id },
@@ -522,7 +533,7 @@ export async function updateDirectory(ctx: Ctx, id: string, input: unknown) {
       entity: "employee",
       entityId: id,
       summary: `Updated ${data.firstName} ${data.lastName}'s employment details`,
-      changes: changes.map((c) => (c.field === "managerId" ? { field: "manager", from: "(changed)", to: "(see history)" } : c)),
+      changes: changes.map((c) => (c.field === "managerId" ? { field: "manager", ...managerNames } : c)),
     });
   }
 }
@@ -533,13 +544,14 @@ export async function updateContact(ctx: Ctx, id: string, input: unknown) {
   const next = contactDoc(data);
   await Employee.updateOne({ _id: id }, { contact: next });
 
-  const flat = (c: ReturnType<typeof contactDoc> | Stored["contact"]) => ({
+  const flat = (c: ReturnType<typeof contactDoc> | Stored["contact"]): Record<string, unknown> => ({
     personalEmail: c?.personalEmail, phone: c?.phone, address: c?.address, town: c?.town, county: c?.county,
-    nextOfKin: JSON.stringify(c?.nextOfKin ?? {}), emergencyContact: JSON.stringify(c?.emergencyContact ?? {}),
+    kinName: c?.nextOfKin?.name, kinRelationship: c?.nextOfKin?.relationship, kinPhone: c?.nextOfKin?.phone,
+    emergencyName: c?.emergencyContact?.name, emergencyRelationship: c?.emergencyContact?.relationship, emergencyPhone: c?.emergencyContact?.phone,
   });
-  const fields = ["personalEmail", "phone", "address", "town", "county", "nextOfKin", "emergencyContact"];
-  // Contact details are personal data too: the log names the fields, not the values.
-  const changes = diff(flat(e.contact), flat(next), fields, new Set(fields));
+  const fields = ["personalEmail", "phone", "address", "town", "county", "kinName", "kinRelationship", "kinPhone", "emergencyName", "emergencyRelationship", "emergencyPhone"];
+  // Contact details are personal data too: before and after are stored encrypted.
+  const changes = diff(flat(e.contact), flat(next), fields, "contact");
   if (changes.length) {
     await record(ctx, {
       action: "employee.contact.update",
@@ -566,7 +578,7 @@ export async function updatePii(ctx: Ctx, id: string, input: unknown) {
       retirementDate: retirementDate(data.dateOfBirth),
     },
   );
-  const changes = diff(old, nextPlain, [...PII_FIELDS], new Set(PII_FIELDS));
+  const changes = diff(old, nextPlain, [...PII_FIELDS], "pii");
   if (changes.length) {
     await record(ctx, {
       action: "employee.pii.update",
@@ -622,7 +634,7 @@ export async function updatePay(ctx: Ctx, id: string, input: unknown) {
     entityId: id,
     summary: `Changed ${fullName(e)}'s salary`,
     reason: data.reason,
-    changes: [{ field: "basicSalary", from: "[redacted]", to: "[redacted]" }],
+    changes: [secretChange("basicSalary", "pay", before, data.basicSalary)],
   });
 }
 

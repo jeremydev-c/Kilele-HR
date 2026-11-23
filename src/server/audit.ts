@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { connectDB } from "@/lib/db";
+import { encrypt } from "@/lib/crypto";
 import { AuditLog, type AuditEntry } from "./models/AuditLog";
 import type { Ctx } from "./context";
 
@@ -21,7 +22,19 @@ export function actorOf(ctx: Ctx): Actor {
   return { id: ctx.userId, name: ctx.name, ip: ctx.ip };
 }
 
-export type Change = { field: string; from?: string; to?: string };
+/**
+ * One field's before and after. Sensitive values (kind set) are stored
+ * encrypted, so the log is never a plain-text copy of personal data or pay;
+ * the audit page decides who sees them in full, masked, or not at all.
+ */
+export type SecretKind = "pii" | "contact" | "pay";
+export type Change = { field: string; from?: string; to?: string; kind?: SecretKind };
+
+/** Sensitive before/after, sealed with the PII key ("" stays "" so "(empty)" still shows). */
+export function secretChange(field: string, kind: SecretKind, from: unknown, to: unknown): Change {
+  const seal = (v: unknown) => (v === null || v === undefined || v === "" ? "" : encrypt(String(v)));
+  return { field, kind, from: seal(from), to: seal(to) };
+}
 
 export type AuditInput = {
   action: string;
@@ -48,7 +61,8 @@ function hashEntry(prevHash: string, e: Hashable): string {
     e.entity ?? null,
     e.entityId ?? null,
     e.summary,
-    (e.changes ?? []).map((c) => [c.field, c.from ?? null, c.to ?? null]),
+    // Entries written before sensitive kinds existed hash exactly as they always did.
+    (e.changes ?? []).map((c) => (c.kind ? [c.field, c.from ?? null, c.to ?? null, c.kind] : [c.field, c.from ?? null, c.to ?? null])),
     e.reason ?? null,
     e.ip ?? null,
   ]);
@@ -72,7 +86,7 @@ export async function record(actor: Actor | Ctx, input: AuditInput): Promise<voi
       entity: input.entity ?? null,
       entityId: input.entityId ?? null,
       summary: input.summary,
-      changes: (input.changes ?? []).map((c) => ({ field: c.field, from: c.from ?? null, to: c.to ?? null })),
+      changes: (input.changes ?? []).map((c) => ({ field: c.field, from: c.from ?? null, to: c.to ?? null, ...(c.kind && { kind: c.kind }) })),
       reason: input.reason ?? null,
       ip: a.ip,
     } as Hashable;
@@ -117,14 +131,14 @@ export async function verifyChain(): Promise<ChainReport> {
 
 /**
  * What changed between two versions of a record, as audit entries.
- * Sensitive fields log the field name only, never the values, so the audit
+ * Fields in `secret` are stored encrypted (see secretChange), so the audit
  * log doesn't turn into a second copy of everyone's PII.
  */
 export function diff(
   before: Record<string, unknown>,
   after: Record<string, unknown>,
   fields: string[],
-  sensitive: ReadonlySet<string> = new Set(),
+  secret?: SecretKind,
 ): Change[] {
   const show = (v: unknown) => (v === null || v === undefined || v === "" ? "(empty)" : String(v));
   const changes: Change[] = [];
@@ -132,7 +146,7 @@ export function diff(
     const a = show(before[f]);
     const b = show(after[f]);
     if (a === b) continue;
-    changes.push(sensitive.has(f) ? { field: f, from: "[redacted]", to: "[redacted]" } : { field: f, from: a, to: b });
+    changes.push(secret ? secretChange(f, secret, before[f], after[f]) : { field: f, from: a, to: b });
   }
   return changes;
 }

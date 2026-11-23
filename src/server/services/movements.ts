@@ -9,7 +9,7 @@ import { EmploymentEvent } from "../models/EmploymentEvent";
 import { Movement, type MovementRecord } from "../models/Movement";
 import { nextNumber } from "../models/Counter";
 import { authorize, can, scopeFilter } from "../authz";
-import { record, type Actor } from "../audit";
+import { record, secretChange, type Actor } from "../audit";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import { decisionRight, startWorkflow, subjectOf, WORKFLOW_SUBJECT_FIELDS, type WorkflowDef } from "../workflow";
 import type { Ctx } from "../context";
@@ -193,7 +193,7 @@ export async function applyMovementIfDue(id: unknown, now = new Date(), actor: A
       changes: [
         { field: "jobTitle", from: m.from.jobTitle ?? "", to: m.to.jobTitle ?? "" },
         { field: "grade", from: m.from.grade ?? "", to: m.to.grade ?? "" },
-        { field: "basicSalary", from: "[redacted]", to: "[redacted]" },
+        secretChange("basicSalary", "pay", m.from.basicSalary, m.to.basicSalary),
       ],
     });
     return true;

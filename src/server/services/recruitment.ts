@@ -15,7 +15,7 @@ import {
 } from "../models/Recruitment";
 import { Separation } from "../models/Separation";
 import { authorize, can, has, scopeFilter } from "../authz";
-import { record, type Actor } from "../audit";
+import { record, secretChange, type Actor } from "../audit";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
 import { decisionRight, startWorkflow, type WorkflowDef } from "../workflow";
 import { ctxForUser, type Ctx } from "../context";
@@ -761,6 +761,7 @@ export async function makeOffer(ctx: Ctx, id: string, input: unknown, now = new 
   }
   if (data.expiresOn < today(now)) throw new AppError("The offer would already have expired.");
   if (data.startDate <= data.expiresOn) throw new AppError("The start date should be after the offer expires.");
+  const previousSalary = a.offer?.basicSalary ?? "";
   a.offer = { ...data, madeByName: ctx.name, madeAt: now, respondedAt: undefined };
   a.stage = "offer";
   a.history.push({ stage: "offer", at: now, byName: ctx.name, note: `Offer: KES ${data.basicSalary.toLocaleString()} / month, start ${data.startDate}` });
@@ -770,7 +771,7 @@ export async function makeOffer(ctx: Ctx, id: string, input: unknown, now = new 
     entity: "application",
     entityId: id,
     summary: `Made an offer to ${a.candidate.name} for ${v.title}`,
-    changes: [{ field: "basicSalary", to: "[redacted]" }],
+    changes: [secretChange("basicSalary", "pay", previousSalary, data.basicSalary)],
   });
   await onOffer(asApp(a), v);
 }

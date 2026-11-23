@@ -17,9 +17,9 @@ const AuditLogSchema = new Schema({
   entity: { type: String, default: null },
   entityId: { type: String, default: null, index: true },
   summary: { type: String, required: true },
-  /** Field names always; values only for non-sensitive fields. */
+  /** Before and after. With kind set (pii, contact, pay), from/to are encrypted. */
   changes: {
-    type: [{ field: String, from: String, to: String, _id: false }],
+    type: [{ field: String, from: String, to: String, kind: String, _id: false }],
     default: [],
   },
   reason: { type: String, default: null },

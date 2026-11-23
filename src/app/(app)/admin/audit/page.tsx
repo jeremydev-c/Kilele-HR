@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Link2, Search, ShieldCheck } from "lucide-react";
+import { Link2, Lock, Search, ShieldCheck } from "lucide-react";
 import { requireCtx } from "@/server/context";
 import { load, requirePermission } from "@/server/page";
 import { AUDIT_CATEGORIES, listAudit } from "@/server/services/auditTrail";
@@ -82,15 +82,26 @@ export default async function AuditPage({
                   </div>
                   {e.reason && <p className="mt-1 text-xs text-stone-600">Reason: “{e.reason}”</p>}
                   {e.changes.length > 0 && (
-                    <ul className="mt-1.5 space-y-0.5 text-xs text-stone-600">
-                      {e.changes.map((c, i) => (
-                        <li key={i}>
-                          <span className="font-medium">{c.field}</span>
-                          {c.from != null && <>: <span className="line-through decoration-stone-400">{c.from}</span></>}
-                          {c.to != null && <> → {c.to}</>}
-                        </li>
-                      ))}
-                    </ul>
+                    <table className="audit-changes mt-2 w-full max-w-xl text-xs">
+                      <thead>
+                        <tr><th>Field</th><th>Before</th><th>Now</th></tr>
+                      </thead>
+                      <tbody>
+                        {e.changes.map((c, i) => (
+                          <tr key={i}>
+                            <td className="font-medium text-stone-700">{c.label}</td>
+                            {c.hidden ? (
+                              <td colSpan={2} className="text-stone-400 italic"><Lock className="mr-1 inline size-3" />{c.hidden}</td>
+                            ) : (
+                              <>
+                                <td className="text-stone-500">{c.from ?? "—"}</td>
+                                <td className="font-medium">{c.to ?? "—"}</td>
+                              </>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
                 </td>
                 <td className="hidden font-mono text-xs text-stone-400 xl:table-cell" title={`prev ${e.prevHash}\nhash ${e.hash}`}>

@@ -107,6 +107,19 @@
     @apply border-b-0;
   }
 }
+/* Before | Now table inside an audit entry (declared after data-table, so it wins). */
+@utility audit-changes {
+  @apply overflow-hidden rounded-lg border border-stone-200;
+  & th {
+    @apply border-b border-stone-200 bg-stone-50 px-2.5 py-1.5 text-[11px] font-medium text-stone-500;
+  }
+  & td {
+    @apply border-b border-stone-100 px-2.5 py-1.5 align-top break-words;
+  }
+  & tbody tr:last-child td {
+    @apply border-b-0;
+  }
+}
 
 @layer components {
   /* Black that glitters: a deep sheen with two layers of tiny stars, one of them twinkling. */

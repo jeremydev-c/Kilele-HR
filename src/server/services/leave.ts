@@ -419,6 +419,8 @@ export async function adjustBalance(ctx: Ctx, input: unknown, now = new Date()) 
   authorize(ctx, "leave:read", emp);
   if (ctx.employee?.id === data.employeeId) throw new AppError("You can't adjust your own balance.");
   const year = Number(today(now).slice(0, 4));
+  const code = data.typeCode.toUpperCase();
+  const was = (await balancesFor(emp, year)).find((b) => b.code === code)?.available;
   await LeaveAdjustment.create({ ...data, typeCode: data.typeCode.toUpperCase(), year, byName: ctx.name });
   await record(ctx, {
     action: "leave.adjust",
@@ -426,5 +428,6 @@ export async function adjustBalance(ctx: Ctx, input: unknown, now = new Date()) 
     entityId: data.employeeId,
     summary: `Adjusted ${emp.firstName} ${emp.lastName}'s ${data.typeCode} balance by ${data.days > 0 ? "+" : ""}${data.days} days`,
     reason: data.reason,
+    ...(was != null && { changes: [{ field: `${code} days available`, from: String(was), to: String(was + data.days) }] }),
   });
 }
