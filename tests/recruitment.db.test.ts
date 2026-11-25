@@ -17,7 +17,8 @@ import {
   submitApplication, submitScorecard, setAutoShortlist, getVacancyBoard, AUTO_SHORTLISTER,
 } from "@/server/services/recruitment";
 import { AuditLog } from "@/server/models/AuditLog";
-import { AppError, ForbiddenError, NotFoundError } from "@/server/errors";
+import { AppError, FieldProblem, ForbiddenError, NotFoundError } from "@/server/errors";
+import { setMailLookupForTests } from "@/server/emailDomain";
 import { blindIndex } from "@/lib/crypto";
 import { decide } from "@/server/services/approvals";
 import { demoCvPdf } from "../scripts/demoPdf";
@@ -137,6 +138,25 @@ test("automatic shortlisting: pass mark, must-haves, people waiting, and the rec
   } finally {
     await Vacancy.updateOne({ _id: vid }, { autoShortlistAt: null });
   }
+});
+
+test("careers form email: typos caught unless kept, throwaways and dead domains refused, one inbox one application", async () => {
+  const apply = (extra: Record<string, string>, ip: string) => submitApplication(slug, applicant(extra), pdf, ip, NOW);
+  const fieldErr = (msg: RegExp) => (err: unknown) => err instanceof FieldProblem && err.field === "email" && msg.test(err.message);
+
+  await assert.rejects(apply({ email: "wanjiru@gmial.com" }, "mail-1"), fieldErr(/did you mean wanjiru@gmail\.com/));
+  await apply({ name: "Kept Spelling", email: "wanjiru@gmial.com", emailConfirmed: "wanjiru@gmial.com" }, "mail-2");
+  await assert.rejects(apply({ email: "someone@mailinator.com" }, "mail-3"), fieldErr(/permanent email/));
+
+  setMailLookupForTests(async (d) => (d === "no-such-company.co.ke" ? "no" : "yes"));
+  try {
+    await assert.rejects(apply({ email: "jane@no-such-company.co.ke" }, "mail-4"), fieldErr(/can't receive email/));
+  } finally {
+    setMailLookupForTests(null);
+  }
+
+  await apply({ name: "Jane Doe", email: "jane.doe@gmail.com" }, "mail-5");
+  await assert.rejects(apply({ email: "Jane.Doe+cv@gmail.com" }, "mail-6"), /already applied/, "the same Gmail inbox written another way");
 });
 
 test("offers must sit inside the grade's salary band", async () => {

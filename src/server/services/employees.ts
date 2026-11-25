@@ -11,6 +11,7 @@ import { nextNumber } from "../models/Counter";
 import { authorize, can, has, scopeFilter } from "../authz";
 import { diff, record, secretChange } from "../audit";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
+import { assertEmailOk } from "../emailDomain";
 import { decryptPii, PII_FIELDS, toEmployeeView, type EmployeeView } from "../employeeView";
 import type { Ctx } from "../context";
 
@@ -339,9 +340,12 @@ async function pathUnder(managerId: string | undefined, selfId: string | null, s
  * already set by someone with recruitment rights and accepted by the
  * candidate, so whoever onboards them doesn't need pay rights to carry it over.
  */
-export async function createEmployee(ctx: Ctx, input: unknown, opts: { approvedSalary?: number; source?: string } = {}) {
+export async function createEmployee(ctx: Ctx, input: unknown, opts: { approvedSalary?: number; source?: string; personalEmailChecked?: boolean } = {}) {
   authorize(ctx, "employee:create");
   const data = CreateInput.parse(input);
+  // Work email: our own domain, so spelling and throwaway checks only. Personal email: also that it can receive mail.
+  await assertEmailOk("workEmail", data.workEmail, input);
+  if (!opts.personalEmailChecked) await assertEmailOk("personalEmail", data.personalEmail, input, { checkDomain: true });
   await connectDB();
   const dept = await Department.findById(data.departmentId).lean();
   if (!dept) throw new AppError("Pick a department.");
@@ -432,6 +436,7 @@ async function loadForEdit(ctx: Ctx, id: string, needs?: "employee.contact:read"
 export async function updateDirectory(ctx: Ctx, id: string, input: unknown) {
   const data = DirectoryInput.parse(input);
   const e = await loadForEdit(ctx, id);
+  if (data.workEmail !== e.workEmail) await assertEmailOk("workEmail", data.workEmail, input);
   await assertUniqueEmail(data.workEmail, id);
   const depts = await departmentNames();
   if (!depts.has(data.departmentId)) throw new AppError("Pick a department.");
@@ -541,6 +546,10 @@ export async function updateDirectory(ctx: Ctx, id: string, input: unknown) {
 export async function updateContact(ctx: Ctx, id: string, input: unknown) {
   const data = ContactInput.parse(input);
   const e = await loadForEdit(ctx, id, "employee.contact:read");
+  // Only a new address is checked: saving someone's phone never trips over an old email.
+  if (data.personalEmail && data.personalEmail.toLowerCase() !== (e.contact?.personalEmail ?? "").toLowerCase()) {
+    await assertEmailOk("personalEmail", data.personalEmail, input, { checkDomain: true });
+  }
   const next = contactDoc(data);
   await Employee.updateOne({ _id: id }, { contact: next });
 

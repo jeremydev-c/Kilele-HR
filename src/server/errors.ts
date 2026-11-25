@@ -16,6 +16,13 @@ export class NotFoundError extends AppError {
   }
 }
 
+/** A problem with one field, shown under that field (like a zod error). */
+export class FieldProblem extends AppError {
+  constructor(readonly field: string, message: string) {
+    super(message);
+  }
+}
+
 export type ActionResult = {
   ok?: string;
   error?: string;
@@ -37,6 +44,7 @@ export async function runAction(fn: () => Promise<ActionResult | void>): Promise
   } catch (err) {
     unstable_rethrow(err); // let Next.js redirect() / notFound() through
     if (err instanceof ForbiddenError) await recordDenied(err.message);
+    if (err instanceof FieldProblem) return { error: "Please fix the highlighted fields.", fieldErrors: { [err.field]: err.message } };
     if (err instanceof AppError) return { error: err.message };
     if (err instanceof ZodError) {
       const fieldErrors: Record<string, string> = {};

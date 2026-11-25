@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ActionForm, FieldError } from "@/components/ActionForm";
+import { EmailInput } from "@/components/EmailInput";
 import { createUserAction } from "../actions";
 
 type Employee = { id: string; label: string; name: string; email: string };
@@ -44,7 +45,7 @@ export function NewUserForm({ employees, roles }: { employees: Employee[]; roles
         </div>
         <div>
           <label className="label" htmlFor="email">Work email</label>
-          <input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="input" />
+          <EmailInput name="email" value={email} onValueChange={setEmail} required />
           <FieldError name="email" />
         </div>
       </div>

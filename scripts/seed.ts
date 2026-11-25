@@ -236,6 +236,8 @@ async function main() {
   if (process.argv.includes("--test-db")) switchToTestDatabase();
   // The demo story writes emails (applications, approvals…): keep them on the Emails page, never send them.
   process.env.EMAIL_DELIVERY = "seed";
+  // The demo candidates use example.com, a reserved domain that takes no mail on purpose: skip the DNS check.
+  process.env.EMAIL_DOMAIN_CHECK = "off";
   assertSafeTarget();
   if (SHIFT_DAYS) console.log(`Shifting demo dates by ${SHIFT_DAYS / 7} week(s) to the current week.`);
   const password = process.env.DEMO_PASSWORD;

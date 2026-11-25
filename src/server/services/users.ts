@@ -10,6 +10,7 @@ import { Employee } from "../models/Employee";
 import { authorize, canGrant } from "../authz";
 import { record } from "../audit";
 import { AppError, ForbiddenError, NotFoundError } from "../errors";
+import { assertEmailOk } from "../emailDomain";
 import type { Ctx } from "../context";
 import { onAccountCreated, onPasswordReset } from "../email/notify";
 
@@ -124,6 +125,7 @@ const CreateUserInput = z.object({
 export async function createUser(ctx: Ctx, input: unknown) {
   authorize(ctx, "user:manage");
   const data = CreateUserInput.parse(input);
+  await assertEmailOk("email", data.email, input);
   await connectDB();
   await assertCanManage(ctx, { roleIds: data.roleIds, extraGrants: [] });
 

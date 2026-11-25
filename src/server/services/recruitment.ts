@@ -23,6 +23,8 @@ import { readCv, saveCv } from "../files";
 import { allow } from "../rateLimit";
 import { createEmployee } from "./employees";
 import { encrypt } from "@/lib/crypto";
+import { canonicalEmail } from "@/lib/emailCheck";
+import { assertEmailOk } from "../emailDomain";
 import { notifyApprovers, onApplied, onCandidateAnswer, onHired, onInterviewScheduled, onOffer, onStageChange } from "../email/notify";
 
 /** A saved application in the shape the email helpers read. */
@@ -537,10 +539,14 @@ export async function submitApplication(
   if (fields.website) throw new AppError("Something went wrong. Please try again."); // honeypot: humans never see it
   if (!allow(`apply:${ip ?? "unknown"}`, 5, 60 * 60_000)) throw new AppError("Too many applications from this connection. Try again in an hour.");
   const data = ApplyInput.parse(fields);
+  await assertEmailOk("email", data.email, fields, { checkDomain: true });
   await connectDB();
   const v = await Vacancy.findOne({ slug, status: "open", closesOn: { $gte: today(now) } }).lean<VacDoc>();
   if (!v) throw new AppError("This job is no longer taking applications.");
-  if (await Application.exists({ vacancyId: v._id, "candidate.email": data.email })) {
+  // The same inbox written differently (Jane.Doe+cv@gmail.com vs janedoe@gmail.com) is the same person.
+  const key = canonicalEmail(data.email);
+  const earlier = await Application.find({ vacancyId: v._id }).select("candidate.email").lean<ApplicationDoc[]>();
+  if (earlier.some((x) => canonicalEmail(x.candidate.email) === key)) {
     throw new AppError("You've already applied for this job with that email. Use the status link you were given to follow it.");
   }
 
@@ -895,7 +901,8 @@ export async function hireCandidate(ctx: Ctx, id: string, input: Record<string, 
       phone: a.candidate.phone,
       personalEmail: a.candidate.email,
     },
-    { approvedSalary: a.offer!.basicSalary!, source: `${a.number} (${v.title})` },
+    // The personal email is the one they applied with: checked then, not again.
+    { approvedSalary: a.offer!.basicSalary!, source: `${a.number} (${v.title})`, personalEmailChecked: true },
   );
 
   await withTransaction(async (session) => {

@@ -1,4 +1,5 @@
 import { FieldError } from "@/components/ActionForm";
+import { EmailInput } from "@/components/EmailInput";
 import { GRADES } from "@/lib/grades";
 import { EMPLOYMENT_TYPES, kes } from "@/components/people";
 
@@ -12,7 +13,11 @@ export function Input({
   return (
     <div className={className}>
       <label className="label" htmlFor={name}>{label}{required && <span className="text-red-600"> *</span>}</label>
-      <input id={name} name={name} type={type} defaultValue={defaultValue} required={required} placeholder={placeholder} min={min} className="input" />
+      {type === "email" ? (
+        <EmailInput name={name} defaultValue={defaultValue == null ? "" : String(defaultValue)} required={required} placeholder={placeholder} />
+      ) : (
+        <input id={name} name={name} type={type} defaultValue={defaultValue} required={required} placeholder={placeholder} min={min} className="input" />
+      )}
       {hint && <p className="mt-1 text-xs text-stone-500">{hint}</p>}
       <FieldError name={name} />
     </div>

@@ -13,6 +13,7 @@ export async function createUserAction(_prev: ActionResult, fd: FormData): Promi
     const { id, password } = await createUser(ctx, {
       name: fd.get("name"),
       email: fd.get("email"),
+      emailConfirmed: fd.get("emailConfirmed") ?? "",
       roleIds: fd.getAll("roleIds"),
       employeeId: fd.get("employeeId") ?? "",
     });

@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionForm, FieldError } from "@/components/ActionForm";
+import { EmailInput } from "@/components/EmailInput";
 import { applyAction } from "../actions";
 
 type Q = { key: string; text: string; kind: "yesno" | "number" };
@@ -15,7 +16,7 @@ export function ApplyJobForm({ slug, questions }: { slug: string; questions: Q[]
       </div>
       <div>
         <label className="label" htmlFor="email">Email</label>
-        <input id="email" name="email" type="email" required autoComplete="email" className="input" />
+        <EmailInput name="email" required autoComplete="email" />
         <FieldError name="email" />
       </div>
       <div className="grid grid-cols-2 gap-3">

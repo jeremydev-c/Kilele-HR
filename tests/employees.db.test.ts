@@ -15,8 +15,8 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/server/models/User";
 import { Employee } from "@/server/models/Employee";
 import { ctxForUser, type Ctx } from "@/server/context";
-import { createEmployee, getEmployee, listEmployees, revealPii, updateDirectory } from "@/server/services/employees";
-import { ForbiddenError, AppError } from "@/server/errors";
+import { createEmployee, getEmployee, listEmployees, revealPii, updateContact, updateDirectory } from "@/server/services/employees";
+import { ForbiddenError, AppError, FieldProblem } from "@/server/errors";
 
 const as = async (email: string): Promise<Ctx> => {
   const u = await User.findOne({ email }).lean();
@@ -113,4 +113,27 @@ test("changing a manager rewrites the whole subtree's path, and loops are refuse
   // …and back under David.
   await updateDirectory(grace, collins, { ...(await directory(collins)), managerId: david });
   assert.deepEqual(await pathOf("Mercy"), [ceo, david, collins]);
+});
+
+test("personal email: a new address is checked, an old one never blocks saving other details", async () => {
+  const grace = await as("grace.wanjiru@kilele.co.ke");
+  const id = await idOf("Mercy");
+  const c = (await Employee.findById(id).lean())!.contact!;
+  const contact = {
+    personalEmail: c.personalEmail ?? "", phone: c.phone ?? "", address: c.address ?? "", town: c.town ?? "", county: c.county ?? "",
+    kinName: c.nextOfKin?.name ?? "", kinRelationship: c.nextOfKin?.relationship ?? "", kinPhone: c.nextOfKin?.phone ?? "",
+    emergencyName: c.emergencyContact?.name ?? "", emergencyRelationship: c.emergencyContact?.relationship ?? "", emergencyPhone: c.emergencyContact?.phone ?? "",
+  };
+  await assert.rejects(
+    updateContact(grace, id, { ...contact, personalEmail: "mercy@yaho.com" }),
+    (err: unknown) => err instanceof FieldProblem && err.field === "personalEmail" && /mercy@yahoo\.com/.test(err.message),
+  );
+  await updateContact(grace, id, { ...contact, town: c.town ?? "" }); // unchanged address: no check
+  await assert.rejects(
+    updateDirectory(grace, id, {
+      firstName: "Mercy", lastName: (await Employee.findById(id).lean())!.lastName, gender: "female", workEmail: "mercy@kilele.co.ek",
+      jobTitle: "x".repeat(3), departmentId: String((await Employee.findById(id).lean())!.departmentId), employmentType: "permanent", status: "active",
+    }),
+    (err: unknown) => err instanceof FieldProblem && err.field === "workEmail" && /kilele\.co\.ke/.test(err.message),
+  );
 });
