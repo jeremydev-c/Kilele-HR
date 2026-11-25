@@ -42,3 +42,12 @@ export function scoreAnswers(questions: Question[], answers: Record<string, stri
   }
   return { score: weights ? Math.round((total / weights) * 100) : 0, knockouts };
 }
+
+/**
+ * Automatic shortlisting. Only ever moves someone forward: a candidate who
+ * misses a must-have is never shortlisted by the system (nor rejected by it):
+ * they wait in New for a person to decide.
+ */
+export function meetsAutoShortlist(passMark: number | null | undefined, score: number, knockouts: readonly string[]) {
+  return passMark != null && knockouts.length === 0 && score >= passMark;
+}

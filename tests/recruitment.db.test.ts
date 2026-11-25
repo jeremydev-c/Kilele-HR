@@ -14,8 +14,9 @@ import { Application, Requisition, Vacancy } from "@/server/models/Recruitment";
 import { ctxForUser, type Ctx } from "@/server/context";
 import {
   advertDraft, candidateStatus, createRequisition, getApplication, hireCandidate, hiringSuggestions, makeOffer, moveStage, openVacancies, publicVacancy, readyToAdvertise, scheduleInterview, endedVacancy,
-  submitApplication, submitScorecard,
+  submitApplication, submitScorecard, setAutoShortlist, getVacancyBoard, AUTO_SHORTLISTER,
 } from "@/server/services/recruitment";
+import { AuditLog } from "@/server/models/AuditLog";
 import { AppError, ForbiddenError, NotFoundError } from "@/server/errors";
 import { blindIndex } from "@/lib/crypto";
 import { decide } from "@/server/services/approvals";
@@ -83,6 +84,59 @@ test("interviewers can't see colleagues' scores until they submit their own", as
     /can't be changed/,
   );
   await assert.rejects(getApplication(await as("Mercy"), kip), ForbiddenError, "not on the panel, not a recruiter");
+});
+
+test("automatic shortlisting: pass mark, must-haves, people waiting, and the record", async () => {
+  const faith = await as("Faith");
+  const vid = String((await Vacancy.findOne({ slug }).lean())!._id);
+  const stage = async (name: string) => (await Application.findOne({ "candidate.name": name }).lean())!.stage;
+  // Default answers score 90; q3 "no" scores 57; q2 "3" scores 80; q1 "no" misses a must-have.
+  const apply = (name: string, ip: string, extra: Record<string, string> = {}) => submitApplication(slug, applicant({ name, ...extra }), pdf, ip, NOW);
+
+  await assert.rejects(setAutoShortlist(await as("David"), vid, { mode: "on", passMark: "80" }, NOW), ForbiddenError, "recruiters only");
+  await assert.rejects(setAutoShortlist(faith, vid, { mode: "on", passMark: "150" }, NOW), /1 to 100/);
+
+  try {
+    // Waiting in New before the rule exists. One was shortlisted then moved back by a person.
+    await apply("Held Back", "auto-1");
+    const held = await appOf("Held Back");
+    await moveStage(faith, held, { to: "shortlisted" }, NOW);
+    await moveStage(faith, held, { to: "new" }, NOW);
+    await apply("Waiting Strong", "auto-2");
+    await apply("Waiting Weak", "auto-3", { answer_q3: "no" });
+
+    const { passMark, shortlisted } = await setAutoShortlist(faith, vid, { mode: "on", passMark: "80", backlog: "on" }, NOW);
+    assert.equal(passMark, 80);
+    assert.ok(shortlisted >= 1);
+    assert.equal(await stage("Waiting Strong"), "shortlisted", "the waiting list is worked through");
+    assert.equal(await stage("Waiting Weak"), "new", "below the mark waits for a person");
+    assert.equal(await stage("Held Back"), "new", "a person's decision is never overridden");
+
+    // From now on, on arrival.
+    await apply("Arrives Exactly", "auto-4", { answer_q2: "3" });
+    await apply("Arrives Knockout", "auto-5", { answer_q1: "no", answer_q2: "9" });
+    assert.equal(await stage("Arrives Exactly"), "shortlisted", "80 meets a pass mark of 80");
+    assert.equal(await stage("Arrives Knockout"), "new", "scores 83 but missed a must-have");
+
+    const arrived = (await Application.findOne({ "candidate.name": "Arrives Exactly" }).lean())!;
+    assert.equal(arrived.history.at(-1)!.byName, AUTO_SHORTLISTER);
+    assert.match(arrived.history.at(-1)!.note!, /score 80 met the pass mark of 80/);
+    assert.ok(await AuditLog.exists({ action: "recruitment.application.autoshortlist", entityId: String(arrived._id) }), "logged");
+    const rule = await AuditLog.findOne({ action: "recruitment.vacancy.autoshortlist", entityId: vid }).sort({ seq: -1 }).lean();
+    assert.deepEqual([rule!.changes[0].from, rule!.changes[0].to], ["Off", "80 and above"]);
+
+    const board = await getVacancyBoard(faith, vid);
+    assert.equal(board.applications.find((a) => a.candidate.name === "Arrives Exactly")!.autoShortlisted, true);
+    assert.equal(board.applications.find((a) => a.candidate.name === "Waiting Weak")!.autoShortlisted, false);
+    assert.ok(board.waiting.some((w) => w.held === "person") && board.waiting.some((w) => w.held === "must-have"));
+
+    // Off again: everyone waits for a person.
+    await setAutoShortlist(faith, vid, { mode: "off" }, NOW);
+    await apply("After Off", "auto-6");
+    assert.equal(await stage("After Off"), "new");
+  } finally {
+    await Vacancy.updateOne({ _id: vid }, { autoShortlistAt: null });
+  }
 });
 
 test("offers must sit inside the grade's salary band", async () => {

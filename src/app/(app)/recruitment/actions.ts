@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireCtx } from "@/server/context";
 import { runAction, type ActionResult } from "@/server/errors";
 import {
-  createRequisition, createVacancy, hireCandidate, makeOffer, moveStage, scheduleInterview, setVacancyStatus, submitScorecard,
+  createRequisition, createVacancy, hireCandidate, makeOffer, moveStage, scheduleInterview, setAutoShortlist, setVacancyStatus, submitScorecard,
 } from "@/server/services/recruitment";
 
 const form = (fd: FormData) => Object.fromEntries([...fd.entries()].filter(([k]) => !k.startsWith("$")));
@@ -35,6 +35,16 @@ export async function setVacancyStatusAction(id: string, status: "open" | "close
     await setVacancyStatus(await requireCtx(), id, status);
     revalidatePath("/", "layout");
     return { ok: status === "open" ? "The advert is live on the careers page." : "Closed: no new applications." };
+  });
+}
+
+export async function autoShortlistAction(id: string, _prev: ActionResult, fd: FormData): Promise<ActionResult> {
+  return runAction(async () => {
+    const { passMark, shortlisted } = await setAutoShortlist(await requireCtx(), id, form(fd));
+    revalidatePath("/", "layout");
+    if (passMark == null) return { ok: "Automatic shortlisting is off. A person shortlists every applicant." };
+    const now = shortlisted ? ` ${shortlisted} waiting applicant${shortlisted === 1 ? " was" : "s were"} shortlisted now and emailed.` : "";
+    return { ok: `Saved. Applicants scoring ${passMark} or more, with every must-have met, are shortlisted as soon as they apply.${now}` };
   });
 }
 

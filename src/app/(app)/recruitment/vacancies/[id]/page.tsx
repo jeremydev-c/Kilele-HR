@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ExternalLink } from "lucide-react";
+import { AlertTriangle, ExternalLink, Sparkles } from "lucide-react";
 import { requireCtx } from "@/server/context";
 import { load } from "@/server/page";
 import { getVacancyBoard } from "@/server/services/recruitment";
 import { ActionForm } from "@/components/ActionForm";
 import { Badge, PageHeader, fmtDate } from "@/components/ui";
-import { setVacancyStatusAction } from "../../actions";
+import { autoShortlistAction, setVacancyStatusAction } from "../../actions";
+import { AutoShortlist } from "./AutoShortlist";
 
 export const metadata: Metadata = { title: "Applicants" };
 
@@ -25,7 +26,7 @@ function scoreTone(n: number) {
 export default async function VacancyBoardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const ctx = await requireCtx();
-  const { vacancy: v, applications, canManage } = await load(getVacancyBoard(ctx, id));
+  const { vacancy: v, applications, waiting, canManage } = await load(getVacancyBoard(ctx, id));
   const closed = applications.filter((a) => ["rejected", "withdrawn", "declined"].includes(a.stage));
 
   return (
@@ -49,6 +50,11 @@ export default async function VacancyBoardPage({ params }: { params: Promise<{ i
         }
       />
 
+      {canManage && v.status !== "filled" ? (
+        <AutoShortlist action={autoShortlistAction.bind(null, id)} current={v.autoShortlistAt ?? null} waiting={waiting} />
+      ) : v.autoShortlistAt != null ? (
+        <p className="mb-2 flex items-center gap-1.5 text-sm text-stone-600"><Sparkles className="size-4" /> Applicants scoring {v.autoShortlistAt}+ with every must-have met are shortlisted automatically.</p>
+      ) : null}
       <p className="mb-4 text-sm text-stone-500">Best match first.</p>
       <div className="grid gap-4 overflow-x-auto pb-2 md:grid-cols-3 xl:grid-cols-5">
         {COLUMNS.map((col) => {
@@ -70,6 +76,7 @@ export default async function VacancyBoardPage({ params }: { params: Promise<{ i
                       <p className="mt-0.5 text-xs text-stone-500">{a.number}{a.candidate.location ? ` · ${a.candidate.location}` : ""}</p>
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {a.knockouts.length > 0 && <span className="flex items-center gap-1 text-xs text-amber-700"><AlertTriangle className="size-3" />{a.knockouts.length} must-have missed</span>}
+                        {a.autoShortlisted && a.stage === "shortlisted" && <span className="flex items-center gap-1 text-xs text-stone-500"><Sparkles className="size-3" />Auto-shortlisted</span>}
                         {a.stage === "accepted" && <Badge tone="green">Accepted: ready to hire</Badge>}
                         {a.interviews.length > 0 && a.stage === "interview" && (
                           <span className="text-xs text-stone-500">{a.interviews.reduce((n, i) => n + i.scorecards.length, 0)} scorecard(s)</span>

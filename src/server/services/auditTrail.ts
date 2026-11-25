@@ -31,6 +31,7 @@ const FIELD_LABELS: Record<string, string> = {
   nextOfKin: "Next of kin", emergencyContact: "Emergency contact",
   daysPerYear: "Days per year", carryOverMax: "Most days carried over", minServiceMonths: "Months of service needed",
   backdateDays: "Days it can be backdated", active: "Active", roles: "Roles", name: "Name", description: "Description",
+  autoShortlistAt: "Automatic shortlist",
 };
 const label = (f: string) => FIELD_LABELS[f] ?? f.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
 

@@ -3,7 +3,7 @@ import { Types } from "mongoose";
 import { z } from "zod";
 import { connectDB, withTransaction } from "@/lib/db";
 import { GRADES } from "@/lib/grades";
-import { scoreAnswers, type Question } from "@/lib/screening";
+import { meetsAutoShortlist, scoreAnswers, type Question } from "@/lib/screening";
 import { advertFromTemplate } from "@/lib/advertTemplates";
 import { toISODate } from "@/lib/leaveDays";
 import { Employee, type EmployeeRecord } from "../models/Employee";
@@ -346,6 +346,80 @@ export async function setVacancyStatus(ctx: Ctx, id: string, status: "open" | "c
   });
 }
 
+// ---------------------------------------------------------------------------
+// Automatic shortlisting
+// ---------------------------------------------------------------------------
+
+/** Shown as "who" in the pipeline history and the audit log. */
+export const AUTO_SHORTLISTER = "Kilele (automatic shortlist)";
+const autoNote = (score: number, passMark: number) => `Screening score ${score} met the pass mark of ${passMark}, with every must-have met`;
+
+const AutoShortlistInput = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("off") }),
+  z.object({
+    mode: z.literal("on"),
+    passMark: z.coerce.number({ message: "Enter a pass mark." }).int("Use a whole number.").min(1, "Use a pass mark from 1 to 100.").max(100, "Use a pass mark from 1 to 100."),
+    backlog: z.preprocess((v) => v === "on" || v === true || v === "true", z.boolean()).default(false),
+  }),
+]);
+
+/**
+ * Turn automatic shortlisting on (with a pass mark) or off for one advert.
+ * With `backlog`, applicants already waiting in New who meet it are shortlisted
+ * now too, each one logged and emailed like a manual shortlist. Anyone a person
+ * already moved back to New stays where that person put them.
+ */
+export async function setAutoShortlist(ctx: Ctx, vacancyId: string, input: unknown, now = new Date()) {
+  authorize(ctx, "recruitment:manage");
+  const data = AutoShortlistInput.parse(input);
+  if (!Types.ObjectId.isValid(vacancyId)) throw new NotFoundError("Vacancy");
+  await connectDB();
+  const v = await Vacancy.findById(vacancyId);
+  if (!v) throw new NotFoundError("Vacancy");
+  if (v.status === "filled") throw new AppError("This vacancy is filled.");
+  const before = v.autoShortlistAt ?? null;
+  const after = data.mode === "on" ? data.passMark : null;
+  const show = (m: number | null) => (m == null ? "Off" : `${m} and above`);
+
+  if (before !== after) {
+    v.autoShortlistAt = after;
+    await v.save();
+    await record(ctx, {
+      action: "recruitment.vacancy.autoshortlist",
+      entity: "vacancy",
+      entityId: vacancyId,
+      summary: after == null ? `Turned off automatic shortlisting for "${v.title}"` : `Set automatic shortlisting for "${v.title}" to a screening score of ${after}+`,
+      changes: [{ field: "autoShortlistAt", from: show(before), to: show(after) }],
+    });
+  }
+
+  let shortlisted = 0;
+  if (data.mode === "on" && data.backlog) {
+    const waiting = await Application.find({
+      vacancyId: v._id, stage: "new", score: { $gte: data.passMark }, knockouts: { $size: 0 }, "history.stage": { $ne: "shortlisted" },
+    }).sort({ score: -1, createdAt: 1 });
+    const vac = v.toObject() as VacDoc;
+    for (const a of waiting) {
+      // Only if it's still in New: someone may have moved it while we were working.
+      const res = await Application.updateOne(
+        { _id: a._id, stage: "new" },
+        { $set: { stage: "shortlisted" }, $push: { history: { stage: "shortlisted", at: now, byName: AUTO_SHORTLISTER, note: `${autoNote(a.score, data.passMark)} (applied to waiting applicants by ${ctx.name})` } } },
+      );
+      if (!res.modifiedCount) continue;
+      shortlisted++;
+      await record(ctx, {
+        action: "recruitment.application.autoshortlist",
+        entity: "application",
+        entityId: String(a._id),
+        summary: `Shortlisted automatically: ${a.candidate.name} for ${v.title} (${a.number})`,
+        reason: autoNote(a.score, data.passMark),
+      });
+      await onStageChange(asApp(a), vac, "shortlisted");
+    }
+  }
+  return { passMark: after, shortlisted };
+}
+
 export async function listVacancies(ctx: Ctx) {
   await connectDB();
   const filter = isRecruiter(ctx) ? {} : ctx.employee ? { hiringManagerId: new Types.ObjectId(ctx.employee.id) } : null;
@@ -369,10 +443,20 @@ export async function getVacancyBoard(ctx: Ctx, id: string) {
   if (!v) throw new NotFoundError("Vacancy");
   if (!canSeeVacancyPipeline(ctx, v)) throw new ForbiddenError();
   const apps = await Application.find({ vacancyId: v._id })
-    .select("number candidate.name candidate.location score knockouts stage interviews.at interviews.scorecards.recommendation createdAt")
+    .select("number candidate.name candidate.location score knockouts stage history.stage history.byName interviews.at interviews.scorecards.recommendation createdAt")
     .sort({ score: -1, createdAt: 1 })
     .lean<ApplicationDoc[]>();
-  return { vacancy: v, applications: apps, canManage: has(ctx, "recruitment:manage") };
+  return {
+    vacancy: v,
+    applications: apps.map((a) => ({ ...a, autoShortlisted: a.history.some((h) => h.stage === "shortlisted" && h.byName === AUTO_SHORTLISTER) })),
+    // Who is waiting in New, for the pass-mark preview. Missed a must-have, or shortlisted
+    // before and moved back by a person: never shortlisted automatically.
+    waiting: apps.filter((a) => a.stage === "new").map((a) => ({
+      score: a.score,
+      held: a.knockouts.length > 0 ? ("must-have" as const) : a.history.some((h) => h.stage === "shortlisted") ? ("person" as const) : null,
+    })),
+    canManage: has(ctx, "recruitment:manage"),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -468,6 +552,8 @@ export async function submitApplication(
     answers[q.key] = a;
   }
   const { score, knockouts } = scoreAnswers(v.questions as Question[], answers);
+  const passMark = v.autoShortlistAt ?? null;
+  const auto = meetsAutoShortlist(passMark, score, knockouts);
   if (!cv) throw new AppError("Attach your CV as a PDF.");
   const cvFileId = await saveCv(cv.bytes, cv.name);
 
@@ -484,8 +570,11 @@ export async function submitApplication(
     knockouts,
     cvFileId,
     cvName: cv.name,
-    stage: "new",
-    history: [{ stage: "new", at: now, byName: data.name, note: "Applied online" }],
+    stage: auto ? "shortlisted" : "new",
+    history: [
+      { stage: "new", at: now, byName: data.name, note: "Applied online" },
+      ...(auto ? [{ stage: "shortlisted", at: now, byName: AUTO_SHORTLISTER, note: autoNote(score, passMark!) }] : []),
+    ],
     statusTokenHash: hashToken(token),
     statusTokenEnc: encrypt(token),
     consentAt: now,
@@ -498,7 +587,17 @@ export async function submitApplication(
     entityId: String(app._id),
     summary: `Applied for ${v.title} (${number}), screening score ${score}${knockouts.length ? `, ${knockouts.length} minimum requirement(s) not met` : ""}`,
   });
+  if (auto) {
+    await record({ id: null, name: AUTO_SHORTLISTER, ip: null }, {
+      action: "recruitment.application.autoshortlist",
+      entity: "application",
+      entityId: String(app._id),
+      summary: `Shortlisted automatically: ${data.name} for ${v.title} (${number})`,
+      reason: autoNote(score, passMark!),
+    });
+  }
   await onApplied(asApp(app), v, token);
+  if (auto) await onStageChange(asApp(app), v, "shortlisted");
   return { token, number };
 }
 

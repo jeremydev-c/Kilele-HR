@@ -77,6 +77,12 @@ const VacancySchema = new Schema(
     questions: { type: [QuestionSchema], default: [] },
     /** What interviewers score, 1–5 each. */
     criteria: { type: [String], default: ["Technical skills", "Problem solving", "Communication", "Team fit"] },
+    /**
+     * Automatic shortlisting: applicants scoring at least this (0–100) on the screening
+     * questions, with no must-have missed, are shortlisted the moment they apply.
+     * null = off (a person shortlists everyone).
+     */
+    autoShortlistAt: { type: Number, default: null, min: 1, max: 100 },
     hiringManagerId: { type: Schema.Types.ObjectId, ref: "Employee", required: true },
     hired: { type: Number, default: 0 },
     publishedAt: { type: Date, default: null },

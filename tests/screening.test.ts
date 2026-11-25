@@ -1,7 +1,7 @@
 /** Screening-question scoring. No database.   npm test */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { scoreAnswers, type Question } from "@/lib/screening";
+import { meetsAutoShortlist, scoreAnswers, type Question } from "@/lib/screening";
 
 const Q: Question[] = [
   { key: "q1", text: "Allowed to work in Kenya?", kind: "yesno", weight: 1, knockout: true, target: null, knockoutBelow: null },
@@ -33,4 +33,12 @@ test("knock-outs are flagged (not hidden) for yes/no and minimum numbers", () =>
 
 test("missing or nonsense answers score zero", () => {
   assert.equal(scoreAnswers(Q, { q2: "lots" }).score, 0);
+});
+
+test("automatic shortlisting: at or above the pass mark, every must-have met, and only when switched on", () => {
+  assert.equal(meetsAutoShortlist(70, 70, []), true, "the pass mark itself passes");
+  assert.equal(meetsAutoShortlist(70, 69, []), false);
+  assert.equal(meetsAutoShortlist(70, 100, ["Allowed to work in Kenya?"]), false, "a missed must-have always waits for a person");
+  assert.equal(meetsAutoShortlist(null, 100, []), false, "off");
+  assert.equal(meetsAutoShortlist(undefined, 100, []), false, "never set");
 });
