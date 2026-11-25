@@ -17,6 +17,7 @@ export const AUDIT_CATEGORIES = {
   recruitment: "Recruitment",
   promotion: "Promotions",
   separation: "Separation",
+  performance: "Performance",
   audit: "Audit checks",
 } as const;
 

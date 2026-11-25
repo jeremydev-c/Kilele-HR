@@ -66,6 +66,10 @@ export const PERMISSIONS = [
   { key: "separation:approve", group: "Separation", label: "Approve separations", scoped: true },
   { key: "clearance:signoff", group: "Separation", label: "Sign off exit clearance for own department", scoped: false },
 
+  // Performance (everyone sees their own review, and managers the reviews they write, without a grant)
+  { key: "performance:read", group: "Performance", label: "View performance reviews and ratings", scoped: true },
+  { key: "performance:manage", group: "Performance", label: "Run review cycles (start and close) and follow every review", scoped: false },
+
   // Announcements
   { key: "announcement:send", group: "Announcements", label: "Send announcements and meeting invites (by email too)", scoped: true },
 ] as const satisfies readonly PermissionDef[];

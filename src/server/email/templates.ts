@@ -190,3 +190,30 @@ export function announcement(p: { name: string; from: string; title: string; bod
     button: { label: p.meeting ? "See the meeting" : "Open in Kilele HR", url: p.link },
   });
 }
+
+// ---------------------------------------------------------------- performance
+
+/** To a manager when a cycle starts: who they review, and the first step (goals). */
+export function reviewsToWrite(p: { name: string; cycle: string; people: string[]; due: string; link: string }) {
+  const n = p.people.length;
+  return layout(`${p.cycle}: set goals for ${n === 1 ? p.people[0] : `${n} people`}`, {
+    heading: `${p.cycle} has started`,
+    lines: [
+      `Hi ${esc(first(p.name))}, you're the reviewer for ${n === 1 ? "one person" : `${n} people`}. Start by setting each person's goals: 2 to 8 of them, with weights adding up to 100%.`,
+      `They then rate themselves, you rate them, and they sign it off.`,
+    ],
+    details: [["Your reviews", p.people.join(", ")], ["Finish by", p.due]],
+    button: { label: "Open performance reviews", url: p.link },
+  });
+}
+
+/** One step of a review is done and it's this person's turn. */
+export function reviewTurn(p: { name: string; cycle: string; heading: string; line: string; due: string; link: string }) {
+  return layout(`${p.cycle}: ${p.heading.toLowerCase()}`, {
+    heading: p.heading,
+    lines: [`Hi ${esc(first(p.name))}, ${p.line}`],
+    details: [["Review", p.cycle], ["Finish by", p.due]],
+    button: { label: "Open the review", url: p.link },
+    note: "Reviews are private: only you, your manager and HR can read them.",
+  });
+}

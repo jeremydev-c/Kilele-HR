@@ -36,6 +36,8 @@ import { Movement } from "@/server/models/Movement";
 import { Separation } from "@/server/models/Separation";
 import { proposeMovement } from "@/server/services/movements";
 import { signClearance, startSeparation, submitExitInterview } from "@/server/services/separations";
+import { acknowledgeReview, setGoals, startCycle, submitManagerReview, submitSelfReview } from "@/server/services/performance";
+import { Review } from "@/server/models/Performance";
 import { demoCvPdf } from "./demoPdf";
 
 /** Kenyan defaults (Employment Act 2007). HR can change them in Leave settings. */
@@ -605,6 +607,96 @@ There will be time for questions, and lunch afterwards. If you're remote, the vi
 Please get anything big merged by the 16th. Ian is on call for emergencies.`,
   }, on("2026-11-02"));
   await backdate(freeze, "2026-11-02", ["ian"]);
+
+  // ---- Performance: the 2026 annual review, part-way through ---------------------
+  // Grace started it in October. Each demo login lands on something to do or see:
+  // Mercy can sign hers off, Faith rates herself, David rates Brian, Grace and Kevin
+  // follow the cycle (and Kevin disagreed with his).
+  const cycleId = await startCycle(await ctxOf("grace"), {
+    name: "2026 Annual review", periodStart: d("2026-01-01"), periodEnd: d("2026-12-31"), dueOn: d("2026-11-30"),
+  }, on("2026-10-15"));
+  const reviewOf = async (key: string) => String((await Review.findOne({ cycleId, employeeId: ids.get(key) }).lean())!._id);
+  const goalsOf = (goals: [title: string, measure: string, weight: number][]) => ({ goals: JSON.stringify(goals.map(([title, measure, weight]) => ({ title, measure, weight }))) });
+  const rated = (ratings: number[], summary: string, comments: string[] = []) => ({
+    ...Object.fromEntries(ratings.flatMap((r, i) => [[`rating_${i}`, String(r)], [`comment_${i}`, comments[i] ?? ""]])), summary,
+  });
+  type ReviewPlan = { goals: Parameters<typeof goalsOf>[0]; self?: [number[], string, string[]?]; manager?: [number[], string, string[]?]; ack?: [agree: boolean, comment?: string] };
+  const review = async (who: string, reviewer: string, s: ReviewPlan) => {
+    const id = await reviewOf(who);
+    await setGoals(await ctxOf(reviewer), id, goalsOf(s.goals), on("2026-10-19"));
+    if (s.self) await submitSelfReview(await ctxOf(who), id, rated(...s.self), on("2026-10-26"));
+    if (s.manager) await submitManagerReview(await ctxOf(reviewer), id, rated(...s.manager), on("2026-10-30"));
+    if (s.ack) await acknowledgeReview(await ctxOf(who), id, { agree: s.ack[0] ? "yes" : "no", comment: s.ack[1] ?? "" }, on("2026-11-02"));
+  };
+
+  const engineering: ReviewPlan["goals"] = [
+    ["Ship the payments-module rewrite", "Checkout errors down by a third, no P1 incidents after launch", 50],
+    ["Mentor a junior engineer through their first year", "They ship a feature end to end by Q3", 25],
+    ["Cut CI build time", "Main branch builds in under 8 minutes", 25],
+  ];
+  // Mercy: her manager has submitted; she can read it and sign it off (the demo).
+  await review("mercy", "collins", {
+    goals: engineering,
+    self: [[5, 4, 3], "The payments rewrite was the big one: checkout errors are down 40% and we had no P1s after launch. Mentoring Ian has been the part I enjoyed most. CI is faster but not yet under 8 minutes.", ["Launched in May, errors down 40%.", "Ian shipped bulk export on his own in August.", "Down from 19 to 11 minutes."]],
+    manager: [[5, 4, 4], "Mercy had an outstanding year. The payments rewrite was delivered on time and changed how the whole team works. Next year I'd like her to take on technical lead duties for the checkout squad.", ["Best project of the year in Engineering.", "Ian speaks highly of her support.", "Real progress; finish it in Q1."]],
+  });
+  await review("ian", "collins", {
+    goals: [
+      ["Own the notifications service", "On call for it with fewer than 2 pages a month", 40],
+      ["Ship the bulk-export feature", "Released by September and used by 10 clients", 40],
+      ["Add tests to the legacy billing code", "Billing module coverage above 70%", 20],
+    ],
+    self: [[4, 3, 3], "Notifications is stable and bulk export shipped. Billing tests got squeezed by the export work."],
+    manager: [[4, 3, 4], "A solid first full year. Ian is reliable on call and took feedback well. More ownership of planning next year."],
+    ack: [true, "Thanks, this is fair."],
+  });
+  await review("naomi", "collins", { goals: engineering });
+  // Faith: goals set, her turn to rate herself (the demo).
+  await review("faith", "grace", {
+    goals: [
+      ["Fill the year's approved roles", "Every approved requisition filled within 60 days", 50],
+      ["Launch the careers page with screening questions", "Every advert on the careers page with scored screening by June", 30],
+      ["Keep candidates informed", "Every applicant hears back within 10 working days", 20],
+    ],
+  });
+  // Kevin: finished, and he disagreed (shows on the cycle page for HR).
+  await review("kevin", "grace", {
+    goals: [
+      ["Keep employee records complete", "Every record has ID, KRA PIN and next of kin by March", 40],
+      ["Decide leave on time", "Leave requests decided within 2 working days", 40],
+      ["Digitise the paper personnel files", "All files scanned and linked by December", 20],
+    ],
+    self: [[4, 4, 3], "Records were complete by February and leave turnaround averaged a day and a half. The paper files project stopped in July when I was moved onto the payroll audit."],
+    manager: [[3, 4, 2], "Kevin keeps our records in very good shape and leave runs smoothly. The scanning project fell well short of its target and needs a plan for Q1."],
+    ack: [false, "The scanning project was paused in July because I led the payroll audit for three months. I'd like that work to be counted here."],
+  });
+  // Brian: he's rated himself; David's turn (the demo).
+  await review("brian", "david", {
+    goals: [
+      ["Move everyone to single sign-on", "All staff on SSO with 2-step verification by August", 50],
+      ["Halve laptop setup time for new joiners", "A new laptop ready in under 2 hours", 25],
+      ["Run a tested backup restore every quarter", "4 restore drills logged", 25],
+    ],
+    self: [[4, 5, 3], "SSO went live in September, a month late because of the email migration. New laptops now take about 90 minutes. Three of four restore drills done."],
+  });
+  await review("collins", "david", {
+    goals: [
+      ["Lead the payments squad to the rewrite launch", "Launched by June with no P1s", 60],
+      ["Grow the team's next lead", "One engineer ready to lead a squad", 40],
+    ],
+    self: [[5, 4], "We launched in May. Mercy is ready to lead the checkout squad."],
+    manager: [[5, 4], "Collins ran the most important project of the year and grew Mercy into a lead. Excellent."],
+    ack: [true],
+  });
+  await review("victor", "lucy", {
+    goals: [
+      ["Grow logistics accounts", "KES 40M in new annual contracts", 70],
+      ["Open the Mombasa pipeline", "10 qualified Mombasa leads by Q4", 30],
+    ],
+    self: [[5, 4], "Closed the two largest logistics accounts of the year, KES 52M in total. Mombasa has 8 qualified leads."],
+    manager: [[5, 5], "Top performer two quarters running, and the reason we're opening Mombasa."],
+    ack: [true, "Thank you, Lucy."],
+  });
 
   const leaveCount = await LeaveRequest.countDocuments();
   const accounts = await User.countDocuments();

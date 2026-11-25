@@ -306,3 +306,59 @@ export function onAnnouncement(a: {
     await sendToStaff(out);
   })().catch(quiet("announcement"));
 }
+
+// ---------------------------------------------------------------- performance
+
+/** Each employee's login email, or their work email when they have no login. */
+async function staffAddresses(raw: unknown[]) {
+  const ids = raw.map(String);
+  const [users, people] = await Promise.all([
+    User.find({ employeeId: { $in: ids }, status: "active" }).select("email name employeeId").lean<{ email: string; name: string; employeeId: Types.ObjectId }[]>(),
+    Employee.find({ _id: { $in: ids } }).select("firstName lastName workEmail").lean(),
+  ]);
+  return new Map(people.map((p) => {
+    const u = users.find((x) => String(x.employeeId) === String(p._id));
+    return [String(p._id), { to: u?.email ?? p.workEmail, name: u?.name ?? `${p.firstName} ${p.lastName}` }];
+  }));
+}
+
+/** A cycle started: one email per reviewer, listing the people they review. */
+export function onCycleStarted(cycle: { _id: unknown; name: string; dueOn: string }, reviews: { _id: unknown; employeeName: string; reviewerId: unknown }[]) {
+  return (async () => {
+    const byReviewer = new Map<string, string[]>();
+    for (const r of reviews) byReviewer.set(String(r.reviewerId), [...(byReviewer.get(String(r.reviewerId)) ?? []), r.employeeName]);
+    const who = await staffAddresses([...byReviewer.keys()]);
+    const out: Outgoing[] = [];
+    for (const [id, people] of byReviewer) {
+      const r = who.get(id);
+      if (!r) continue;
+      out.push({
+        to: r.to, toName: r.name, kind: "performance.cycle", entity: "reviewCycle", entityId: String(cycle._id),
+        ...T.reviewsToWrite({ name: r.name, cycle: cycle.name, people, due: day(cycle.dueOn), link: `${appUrl()}/performance` }),
+      });
+    }
+    await sendToStaff(out);
+  })().catch(quiet("review cycle started"));
+}
+
+const TURN = {
+  self: { to: "employee", heading: "Rate yourself", line: "your goals are set. Rate yourself on each one and add a short summary of your year." },
+  manager: { to: "reviewer", heading: "Review", line: "" },
+  acknowledge: { to: "employee", heading: "Read your review and sign it off", line: "your manager has finished your review. Read it, then agree or say what you see differently." },
+} as const;
+
+/** The review moved on: tell whoever acts next. */
+export function onReviewStep(r: { _id: unknown; cycleName: string; dueOn: string; employeeId: unknown; employeeName: string; reviewerId: unknown }, stage: keyof typeof TURN) {
+  return (async () => {
+    const t = TURN[stage];
+    const id = t.to === "employee" ? r.employeeId : r.reviewerId;
+    const who = (await staffAddresses([id])).get(String(id));
+    if (!who) return;
+    const heading = stage === "manager" ? `Review ${r.employeeName}` : t.heading;
+    const line = stage === "manager" ? `${T.esc(r.employeeName)} has rated themselves. It's your turn to rate each goal and write a summary.` : t.line;
+    await sendToStaff([{
+      to: who.to, toName: who.name, kind: `performance.${stage}`, entity: "review", entityId: String(r._id),
+      ...T.reviewTurn({ name: who.name, cycle: r.cycleName, heading, line, due: day(r.dueOn), link: `${appUrl()}/performance/reviews/${r._id}` }),
+    }]);
+  })().catch(quiet(`review ${stage}`));
+}
